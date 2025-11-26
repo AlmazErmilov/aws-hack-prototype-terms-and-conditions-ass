@@ -7,3 +7,4 @@ backend/.env
 *.egg-info/
 dist/
 build/
+backend/chroma_data/
