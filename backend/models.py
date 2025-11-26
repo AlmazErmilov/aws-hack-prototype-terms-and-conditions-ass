@@ -64,6 +64,12 @@ class UploadTermsRequest(BaseModel):
     category: str
     terms_text: Optional[str] = None
     terms_url: Optional[str] = None
+    # Optional cookie policy
+    cookie_text: Optional[str] = None
+    cookie_url: Optional[str] = None
+    # Optional privacy policy
+    privacy_text: Optional[str] = None
+    privacy_url: Optional[str] = None
 
 
 class UploadCookieRequest(BaseModel):

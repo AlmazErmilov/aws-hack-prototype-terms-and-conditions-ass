@@ -1275,3 +1275,156 @@ header h1 {
         height: 220px;
     }
 }
+
+/* ==================== Policy Input Sections (Add Company Modal) ==================== */
+
+.modal-content-large {
+    max-width: 700px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.policy-input-section {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    background: #fafafa;
+}
+
+.policy-input-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    background: #f5f5f5;
+    transition: background 0.2s;
+    user-select: none;
+}
+
+.policy-input-header:hover {
+    background: #eeeeee;
+}
+
+.policy-input-icon {
+    font-size: 1.2rem;
+    margin-right: 10px;
+}
+
+.policy-input-title {
+    font-weight: 600;
+    color: #333;
+    flex: 1;
+}
+
+.policy-input-required {
+    font-size: 0.8rem;
+    color: #f44336;
+    margin-right: 12px;
+}
+
+.policy-input-optional {
+    font-size: 0.8rem;
+    color: #888;
+    margin-right: 12px;
+}
+
+.policy-input-toggle {
+    font-size: 1.4rem;
+    color: #666;
+    font-weight: 300;
+    width: 24px;
+    text-align: center;
+    line-height: 1;
+}
+
+.policy-input-body {
+    padding: 16px;
+    background: white;
+    border-top: 1px solid #e0e0e0;
+    transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.2s ease;
+    max-height: 500px;
+    opacity: 1;
+}
+
+.policy-input-body.collapsed {
+    max-height: 0;
+    padding: 0 16px;
+    opacity: 0;
+    overflow: hidden;
+    border-top: none;
+}
+
+.policy-input-body .form-group {
+    margin-bottom: 12px;
+}
+
+.policy-input-body .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.policy-input-body textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    resize: vertical;
+    font-family: inherit;
+}
+
+.policy-input-body textarea:focus {
+    border-color: #667eea;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.policy-input-body input[type="url"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.policy-input-body input[type="url"]:focus {
+    border-color: #667eea;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.policy-input-body .input-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.policy-input-body .toggle-btn {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+}
+
+/* Responsive adjustments for policy sections */
+@media (max-width: 600px) {
+    .modal-content-large {
+        max-width: 95%;
+        margin: 5% auto;
+    }
+
+    .policy-input-header {
+        padding: 10px 12px;
+    }
+
+    .policy-input-body {
+        padding: 12px;
+    }
+
+    .policy-input-icon {
+        font-size: 1rem;
+    }
+
+    .policy-input-title {
+        font-size: 0.9rem;
+    }
+}

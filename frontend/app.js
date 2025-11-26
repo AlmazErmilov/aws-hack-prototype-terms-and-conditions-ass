@@ -2,9 +2,11 @@ const API_URL = '';
 
 let companies = [];
 let currentCompany = null;
-let inputMode = 'paste'; // 'paste' or 'url'
+let inputMode = 'paste'; // 'paste' or 'url' for terms in add modal
 let policyInputMode = 'paste'; // for policy upload modal
 let currentPolicyTab = 'terms';
+let addCookieInputMode = 'paste'; // for cookie in add modal
+let addPrivacyInputMode = 'paste'; // for privacy in add modal
 
 // DOM Elements
 const companiesGrid = document.getElementById('companiesGrid');
@@ -319,6 +321,79 @@ function setInputMode(mode) {
     }
 }
 
+function setAddCookieInputMode(mode) {
+    addCookieInputMode = mode;
+    const pasteBtn = document.getElementById('toggleCookiePaste');
+    const urlBtn = document.getElementById('toggleCookieUrl');
+    const pasteGroup = document.getElementById('cookiePasteGroup');
+    const urlGroup = document.getElementById('cookieUrlGroup');
+
+    if (mode === 'paste') {
+        pasteBtn.classList.add('active');
+        urlBtn.classList.remove('active');
+        pasteGroup.style.display = 'block';
+        urlGroup.style.display = 'none';
+    } else {
+        pasteBtn.classList.remove('active');
+        urlBtn.classList.add('active');
+        pasteGroup.style.display = 'none';
+        urlGroup.style.display = 'block';
+    }
+}
+
+function setAddPrivacyInputMode(mode) {
+    addPrivacyInputMode = mode;
+    const pasteBtn = document.getElementById('togglePrivacyPaste');
+    const urlBtn = document.getElementById('togglePrivacyUrl');
+    const pasteGroup = document.getElementById('privacyPasteGroup');
+    const urlGroup = document.getElementById('privacyUrlGroup');
+
+    if (mode === 'paste') {
+        pasteBtn.classList.add('active');
+        urlBtn.classList.remove('active');
+        pasteGroup.style.display = 'block';
+        urlGroup.style.display = 'none';
+    } else {
+        pasteBtn.classList.remove('active');
+        urlBtn.classList.add('active');
+        pasteGroup.style.display = 'none';
+        urlGroup.style.display = 'block';
+    }
+}
+
+function toggleAddPolicySection(policyType) {
+    const body = document.getElementById(`${policyType}PolicyBody`);
+    const icon = document.getElementById(`${policyType}ToggleIcon`);
+
+    if (body.classList.contains('collapsed')) {
+        body.classList.remove('collapsed');
+        icon.textContent = '−';
+    } else {
+        body.classList.add('collapsed');
+        icon.textContent = '+';
+    }
+}
+
+function resetAddCompanyForm() {
+    document.getElementById('addCompanyForm').reset();
+    document.getElementById('termsUrl').value = '';
+    document.getElementById('addCookieUrl').value = '';
+    document.getElementById('addPrivacyUrl').value = '';
+
+    // Reset input modes
+    setInputMode('paste');
+    setAddCookieInputMode('paste');
+    setAddPrivacyInputMode('paste');
+
+    // Reset policy sections - terms open, others collapsed
+    document.getElementById('termsPolicyBody').classList.remove('collapsed');
+    document.getElementById('termsToggleIcon').textContent = '−';
+    document.getElementById('cookiePolicyBody').classList.add('collapsed');
+    document.getElementById('cookieToggleIcon').textContent = '+';
+    document.getElementById('privacyPolicyBody').classList.add('collapsed');
+    document.getElementById('privacyToggleIcon').textContent = '+';
+}
+
 async function seedDatabase() {
     const btn = document.getElementById('seedBtn');
     btn.disabled = true;
@@ -341,10 +416,20 @@ async function handleAddCompany(e) {
 
     const name = document.getElementById('companyName').value;
     const category = document.getElementById('companyCategory').value;
+
+    // Terms data
     const termsText = document.getElementById('termsText').value;
     const termsUrl = document.getElementById('termsUrl').value;
 
-    // Validation
+    // Cookie data
+    const cookieText = document.getElementById('addCookieText').value;
+    const cookieUrl = document.getElementById('addCookieUrl').value;
+
+    // Privacy data
+    const privacyText = document.getElementById('addPrivacyText').value;
+    const privacyUrl = document.getElementById('addPrivacyUrl').value;
+
+    // Validation - Terms is required
     if (inputMode === 'paste' && !termsText.trim()) {
         alert('Please paste the terms and conditions text.');
         return;
@@ -354,20 +439,38 @@ async function handleAddCompany(e) {
         return;
     }
 
-    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const submitBtn = document.getElementById('addCompanySubmitBtn');
     submitBtn.disabled = true;
-    submitBtn.textContent = inputMode === 'url' ? 'Fetching & Analyzing...' : 'Analyzing...';
 
-    // Build request body based on input mode
+    // Determine loading message based on what's being processed
+    const hasMultiplePolicies = (cookieText.trim() || cookieUrl.trim() || privacyText.trim() || privacyUrl.trim());
+    submitBtn.textContent = hasMultiplePolicies ? 'Analyzing policies...' : 'Analyzing...';
+
+    // Build request body
     const requestBody = {
         company_name: name,
         category: category
     };
 
+    // Add terms
     if (inputMode === 'paste') {
         requestBody.terms_text = termsText;
     } else {
         requestBody.terms_url = termsUrl;
+    }
+
+    // Add cookie policy if provided
+    if (addCookieInputMode === 'paste' && cookieText.trim()) {
+        requestBody.cookie_text = cookieText;
+    } else if (addCookieInputMode === 'url' && cookieUrl.trim()) {
+        requestBody.cookie_url = cookieUrl;
+    }
+
+    // Add privacy policy if provided
+    if (addPrivacyInputMode === 'paste' && privacyText.trim()) {
+        requestBody.privacy_text = privacyText;
+    } else if (addPrivacyInputMode === 'url' && privacyUrl.trim()) {
+        requestBody.privacy_url = privacyUrl;
     }
 
     try {
@@ -384,9 +487,7 @@ async function handleAddCompany(e) {
         }
 
         addModal.style.display = 'none';
-        document.getElementById('addCompanyForm').reset();
-        document.getElementById('termsUrl').value = '';
-        setInputMode('paste'); // Reset to paste mode
+        resetAddCompanyForm();
         await loadCompanies();
 
         // Show the newly added company

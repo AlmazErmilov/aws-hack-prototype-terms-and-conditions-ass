@@ -62,7 +62,7 @@ async def get_company(company_id: str):
 
 @app.post("/api/companies", response_model=CompanyResponse)
 async def create_company(request: UploadTermsRequest):
-    """Create a new company and analyze its terms"""
+    """Create a new company and analyze its terms, cookie, and privacy policies"""
     # Get terms text - either from direct input or by scraping URL
     terms_text = request.terms_text
 
@@ -75,12 +75,30 @@ async def create_company(request: UploadTermsRequest):
     if not terms_text:
         raise HTTPException(status_code=400, detail="Either terms_text or terms_url is required")
 
+    # Get cookie text if provided
+    cookie_text = request.cookie_text
+    if request.cookie_url and not cookie_text:
+        try:
+            cookie_text = scraper_service.fetch_terms_from_url(request.cookie_url)
+        except ValueError as e:
+            print(f"Cookie URL fetch failed: {e}")
+
+    # Get privacy text if provided
+    privacy_text = request.privacy_text
+    if request.privacy_url and not privacy_text:
+        try:
+            privacy_text = scraper_service.fetch_terms_from_url(request.privacy_url)
+        except ValueError as e:
+            print(f"Privacy URL fetch failed: {e}")
+
     # Create company entry
     company = db_service.create_company(
         name=request.company_name,
         category=request.category,
         terms_text=terms_text
     )
+
+    company_id = company['id']
 
     # Analyze terms using Bedrock
     try:
@@ -91,7 +109,7 @@ async def create_company(request: UploadTermsRequest):
 
         # Update company with analysis
         db_service.update_company_analysis(
-            company_id=company['id'],
+            company_id=company_id,
             terms_risks=analysis.get('risks', []),
             terms_summary=analysis.get('summary', '')
         )
@@ -99,20 +117,66 @@ async def create_company(request: UploadTermsRequest):
         # Index terms in vector database for RAG
         try:
             vector_service.index_company_terms(
-                company_id=company['id'],
+                company_id=company_id,
                 company_name=request.company_name,
                 terms_text=terms_text
             )
         except Exception as ve:
             print(f"Vector indexing failed: {ve}")
 
-        # Return updated company
-        return db_service.get_company(company['id'])
-
     except Exception as e:
-        # Return company without analysis if Bedrock fails
-        print(f"Bedrock analysis failed: {e}")
-        return company
+        print(f"Terms analysis failed: {e}")
+
+    # Analyze cookie policy if provided
+    if cookie_text:
+        try:
+            db_service.update_cookie_text(company_id, cookie_text)
+            cookie_analysis = bedrock_service.analyze_cookie_policy(
+                company_name=request.company_name,
+                cookie_text=cookie_text
+            )
+            db_service.update_company_cookie_analysis(
+                company_id=company_id,
+                cookie_risks=cookie_analysis.get('cookie_risks', []),
+                cookie_summary=cookie_analysis.get('cookie_summary', '')
+            )
+            try:
+                vector_service.index_company_cookie(
+                    company_id=company_id,
+                    company_name=request.company_name,
+                    cookie_text=cookie_text
+                )
+            except Exception as ve:
+                print(f"Cookie vector indexing failed: {ve}")
+        except Exception as e:
+            print(f"Cookie analysis failed: {e}")
+
+    # Analyze privacy policy if provided
+    if privacy_text:
+        try:
+            db_service.update_privacy_text(company_id, privacy_text)
+            privacy_analysis = bedrock_service.analyze_privacy_policy(
+                company_name=request.company_name,
+                privacy_text=privacy_text
+            )
+            db_service.update_company_privacy_analysis(
+                company_id=company_id,
+                privacy_risks=privacy_analysis.get('privacy_risks', []),
+                privacy_summary=privacy_analysis.get('privacy_summary', '')
+            )
+            try:
+                vector_service.index_company_privacy(
+                    company_id=company_id,
+                    company_name=request.company_name,
+                    privacy_text=privacy_text
+                )
+            except Exception as ve:
+                print(f"Privacy vector indexing failed: {ve}")
+        except Exception as e:
+            print(f"Privacy analysis failed: {e}")
+
+    # Return updated company
+    return db_service.get_company(company_id)
 
 
 @app.post("/api/companies/{company_id}/analyze")
