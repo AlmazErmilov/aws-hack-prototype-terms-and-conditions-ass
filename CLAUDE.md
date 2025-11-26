@@ -44,6 +44,7 @@ frontend/
 - **BedrockService**: Uses Claude Sonnet 4 (`us.anthropic.claude-sonnet-4-20250514-v1:0`) for analysis and chat. Uses Amazon Titan Embeddings V1 for 1536-dimensional vectors.
 - **DynamoDBService**: Table `TermsAndConditions` with `id` (UUID) as partition key. Stores company metadata, T&C text, risks, and summaries.
 - **VectorDBService**: OpenSearch Serverless collection `tc-vectors`, index `tc-chunks`. Text chunked at 1000 chars with 200 char overlap.
+- **ScraperService**: Fetches T&C text from URLs using BeautifulSoup.
 
 ## AWS Configuration
 
@@ -56,9 +57,10 @@ Region: `us-west-2`. Requires environment variables:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/companies` | GET/POST | List all / Create with analysis |
+| `/api/companies` | GET/POST | List all / Create with analysis (supports URL scraping) |
 | `/api/companies/{id}` | GET/DELETE | Get / Delete company |
 | `/api/companies/{id}/analyze` | POST | Re-analyze T&C |
+| `/api/companies/{id}/chat` | POST | Chat about specific company |
 | `/api/chat` | POST | RAG chat (optional `company_id` filter) |
 | `/api/index-all` | POST | Index all companies in vector DB |
 | `/api/vector-stats` | GET | Vector DB statistics |

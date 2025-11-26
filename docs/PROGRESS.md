@@ -7,21 +7,30 @@ A RAG-based web application that analyzes Terms and Conditions from major compan
 
 ### Tech Stack
 - **Backend**: FastAPI (Python)
-- **AI/LLM**: AWS Bedrock (Claude 3 Sonnet)
+- **AI/LLM**: AWS Bedrock (Claude Sonnet 4)
+- **Embeddings**: Amazon Titan Embeddings V1
 - **Database**: AWS DynamoDB
+- **Vector Search**: OpenSearch Serverless
 - **Frontend**: Vanilla HTML/CSS/JavaScript
 
 ### Completed Features
 
 #### Backend (2024-11-26)
 - [x] FastAPI application structure
-- [x] AWS Bedrock integration for T&C analysis
+- [x] AWS Bedrock integration for T&C analysis (Claude Sonnet 4)
 - [x] DynamoDB service for data persistence
+- [x] OpenSearch Serverless for vector storage
+- [x] RAG-powered chat functionality
+- [x] URL scraping for T&C documents
 - [x] REST API endpoints:
   - GET /api/companies - List all companies
   - GET /api/companies/{id} - Get company details
-  - POST /api/companies - Create new company with T&C
+  - POST /api/companies - Create new company with T&C (supports URL scraping)
   - POST /api/companies/{id}/analyze - Analyze company's T&C
+  - POST /api/companies/{id}/chat - Chat about specific company
+  - POST /api/chat - RAG chat across all companies
+  - POST /api/index-all - Index all companies in vector DB
+  - GET /api/vector-stats - Get vector database statistics
   - DELETE /api/companies/{id} - Delete company
   - POST /api/seed - Seed sample data
 
@@ -39,8 +48,12 @@ A RAG-based web application that analyzes Terms and Conditions from major compan
 |--------|----------|-------------|
 | GET | /api/companies | Get all companies |
 | GET | /api/companies/{id} | Get company by ID |
-| POST | /api/companies | Create company |
+| POST | /api/companies | Create company (supports URL scraping) |
 | POST | /api/companies/{id}/analyze | Analyze T&C |
+| POST | /api/companies/{id}/chat | Chat about specific company |
+| POST | /api/chat | RAG chat across all companies |
+| POST | /api/index-all | Index all companies in vector DB |
+| GET | /api/vector-stats | Vector database statistics |
 | DELETE | /api/companies/{id} | Delete company |
 | POST | /api/seed | Load sample data |
 
@@ -85,23 +98,24 @@ chmod +x run.sh
 ┌─────────────────────────────────────────────────────────┐
 │                   FastAPI Backend                       │
 │                                                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
-│  │   REST API  │  │   Bedrock   │  │  DynamoDB   │    │
-│  │  Endpoints  │  │   Service   │  │   Service   │    │
-│  └─────────────┘  └─────────────┘  └─────────────┘    │
+│  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌─────────┐│
+│  │  REST API │ │  Bedrock  │ │ DynamoDB  │ │ Vector  ││
+│  │ Endpoints │ │  Service  │ │  Service  │ │   DB    ││
+│  └───────────┘ └───────────┘ └───────────┘ └─────────┘│
 └─────────────────────────────────────────────────────────┘
                           │
-          ┌───────────────┼───────────────┐
-          ▼               ▼               ▼
-    ┌──────────┐   ┌──────────┐   ┌──────────┐
-    │ Bedrock  │   │ DynamoDB │   │    S3    │
-    │ (Claude) │   │  (Data)  │   │  (Docs)  │
-    └──────────┘   └──────────┘   └──────────┘
+      ┌───────────────────┼───────────────────┐
+      ▼                   ▼                   ▼
+┌──────────┐       ┌──────────┐       ┌────────────┐
+│ Bedrock  │       │ DynamoDB │       │ OpenSearch │
+│(Claude 4)│       │  (Data)  │       │ Serverless │
+└──────────┘       └──────────┘       └────────────┘
 ```
 
 ### Next Steps
 - [ ] Add more company templates
-- [ ] Implement chat feature for Q&A about specific T&C
 - [ ] Add user authentication
 - [ ] Implement S3 for document storage
-- [ ] Add export functionality
+- [ ] Add export functionality (PDF/CSV)
+- [ ] Add comparison feature between companies
+- [ ] Improve chat UI in frontend

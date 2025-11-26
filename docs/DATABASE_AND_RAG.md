@@ -471,11 +471,19 @@ flowchart TD
 ## Dependencies
 
 ```
+fastapi==0.104.1
+uvicorn==0.24.0
 boto3==1.34.0
+python-multipart==0.0.6
+python-dotenv==1.0.0
+pydantic==2.5.0
+jinja2==3.1.2
+aiofiles==23.2.1
+requests==2.31.0
+beautifulsoup4==4.12.2
+lxml==4.9.3
 opensearch-py>=3.0.0
 requests-aws4auth>=1.3.0
-fastapi==0.104.1
-pydantic==2.5.0
 ```
 
 ---

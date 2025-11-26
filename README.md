@@ -6,7 +6,7 @@ A privacy-focused web application that analyzes Terms and Conditions from major 
 
 Most users never read Terms & Conditions before accepting them. This tool helps users understand what they're agreeing to by:
 
-- Analyzing T&C documents using AI (Claude 3 Haiku via AWS Bedrock)
+- Analyzing T&C documents using AI (Claude Sonnet 4 via AWS Bedrock)
 - Identifying and categorizing privacy risks (High/Medium/Low)
 - Presenting findings in an intuitive card-based UI
 - Allowing users to add and analyze new company T&Cs
@@ -166,9 +166,11 @@ pie showData
 | Feature | Description |
 |---------|-------------|
 | Company Cards | Visual grid of companies with risk indicators |
-| Risk Analysis | AI-powered analysis using Claude 3 Haiku |
+| Risk Analysis | AI-powered analysis using Claude Sonnet 4 |
 | Risk Severity | Color-coded risk levels (High/Medium/Low) |
 | Add Companies | Upload new T&C for any company |
+| URL Scraping | Automatically fetch T&C from company URLs |
+| RAG Chat | Ask questions about terms across all companies |
 | Sample Data | Pre-loaded data for Facebook, TikTok, Tinder, X, Instagram, LinkedIn |
 
 ## Tech Stack
@@ -180,15 +182,18 @@ flowchart LR
         FE["🎨 Frontend<br/>HTML • CSS • JavaScript"]
         BE["⚙️ Backend<br/>Python • FastAPI"]
         DB["🗄️ Database<br/>AWS DynamoDB"]
-        AI["🤖 AI/LLM<br/>AWS Bedrock • Claude 3"]
+        VS["🔍 Vector Search<br/>OpenSearch Serverless"]
+        AI["🤖 AI/LLM<br/>AWS Bedrock • Claude Sonnet 4"]
     end
 
     FE --> BE --> DB
+    BE --> VS
     BE --> AI
 
     style FE fill:#4caf50,color:#fff
     style BE fill:#2196f3,color:#fff
     style DB fill:#ff9800,color:#fff
+    style VS fill:#00bcd4,color:#fff
     style AI fill:#9c27b0,color:#fff
 ```
 
@@ -256,7 +261,7 @@ Click "Analyze with AI" to generate or refresh the risk analysis using Claude.
 ### Adding New Companies
 1. Click "+ Add Company"
 2. Enter company name and category
-3. Paste the Terms & Conditions text
+3. Either paste the Terms & Conditions text OR provide a URL to scrape
 4. Submit to analyze
 
 ## API Reference
@@ -269,7 +274,8 @@ flowchart LR
         G2["GET /api/companies/{id}"]
         P1["POST /api/companies"]
         P2["POST /api/companies/{id}/analyze"]
-        P3["POST /api/seed"]
+        P3["POST /api/chat"]
+        P4["POST /api/seed"]
         D1["DELETE /api/companies/{id}"]
     end
 
@@ -277,16 +283,21 @@ flowchart LR
     G2 --> |"Get one"| R2["📄 Company"]
     P1 --> |"Create + Analyze"| R3["📄 Company"]
     P2 --> |"Re-analyze"| R4["📄 Company"]
-    P3 --> |"Load samples"| R5["✅ Status"]
-    D1 --> |"Remove"| R6["✅ Status"]
+    P3 --> |"RAG Chat"| R5["💬 Response"]
+    P4 --> |"Load samples"| R6["✅ Status"]
+    D1 --> |"Remove"| R7["✅ Status"]
 ```
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/companies` | List all companies |
 | `GET` | `/api/companies/{id}` | Get company by ID |
-| `POST` | `/api/companies` | Create company + analyze T&C |
+| `POST` | `/api/companies` | Create company + analyze T&C (supports URL scraping) |
 | `POST` | `/api/companies/{id}/analyze` | Re-analyze company T&C |
+| `POST` | `/api/companies/{id}/chat` | Chat about specific company's terms |
+| `POST` | `/api/chat` | RAG chat across all companies |
+| `POST` | `/api/index-all` | Index all companies in vector DB |
+| `GET` | `/api/vector-stats` | Get vector database statistics |
 | `DELETE` | `/api/companies/{id}` | Delete company |
 | `POST` | `/api/seed` | Load sample data |
 
@@ -316,18 +327,22 @@ flowchart LR
 │   ├── models.py            # Pydantic data models
 │   └── services/
 │       ├── __init__.py
-│       ├── bedrock.py       # AWS Bedrock integration
-│       └── dynamodb.py      # DynamoDB operations
+│       ├── bedrock.py       # AWS Bedrock integration (Claude Sonnet 4, Titan Embeddings)
+│       ├── dynamodb.py      # DynamoDB operations
+│       ├── vector_db.py     # OpenSearch Serverless vector search
+│       └── scraper.py       # URL scraping for T&C documents
 ├── frontend/
 │   ├── index.html           # Main HTML page
 │   ├── styles.css           # CSS styling
 │   └── app.js               # Frontend JavaScript
 ├── docs/
-│   └── PROGRESS.md          # Development progress
+│   ├── PROGRESS.md          # Development progress
+│   └── DATABASE_AND_RAG.md  # Database and RAG architecture
 ├── .env.example             # Environment template
 ├── .gitignore
 ├── requirements.txt
 ├── run.sh                   # Quick start script
+├── CLAUDE.md                # Claude Code guidance
 └── README.md
 ```
 
