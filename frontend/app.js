@@ -52,6 +52,9 @@ function setupEventListeners() {
 
     // Delete button
     document.getElementById('deleteBtn').addEventListener('click', deleteCompany);
+
+    // Toggle terms visibility
+    document.getElementById('toggleTermsBtn').addEventListener('click', toggleTerms);
 }
 
 async function loadCompanies() {
@@ -136,7 +139,25 @@ function showCompanyDetails(companyId) {
         `).join('');
     }
 
+    // Populate and reset terms section
+    document.getElementById('originalTerms').textContent = currentCompany.terms_text || 'No terms text available.';
+    document.getElementById('termsContent').style.display = 'none';
+    document.getElementById('toggleTermsBtn').classList.remove('active');
+
     companyModal.style.display = 'block';
+}
+
+function toggleTerms() {
+    const btn = document.getElementById('toggleTermsBtn');
+    const content = document.getElementById('termsContent');
+
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        btn.classList.add('active');
+    } else {
+        content.style.display = 'none';
+        btn.classList.remove('active');
+    }
 }
 
 async function seedDatabase() {

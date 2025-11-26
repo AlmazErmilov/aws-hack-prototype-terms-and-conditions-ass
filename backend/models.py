@@ -34,6 +34,7 @@ class CompanyResponse(BaseModel):
     risks: List[Risk] = []
     summary: Optional[str] = None
     last_updated: Optional[str] = None
+    terms_text: Optional[str] = None
 
 
 class RiskAnalysisRequest(BaseModel):
