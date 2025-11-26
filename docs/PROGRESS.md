@@ -30,12 +30,15 @@ A RAG-based web application that analyzes Terms and Conditions from major compan
   - POST /api/companies/{id}/analyze - Analyze company's T&C
   - POST /api/companies/{id}/cookie - Upload and analyze cookie policy
   - POST /api/companies/{id}/analyze-cookie - Re-analyze cookie policy
+  - POST /api/companies/{id}/privacy - Upload and analyze privacy policy
+  - POST /api/companies/{id}/analyze-privacy - Re-analyze privacy policy
   - POST /api/companies/{id}/chat - Chat about specific company
   - POST /api/chat - RAG chat across all companies
   - POST /api/index-all - Index all companies in vector DB
   - GET /api/vector-stats - Get vector database statistics
   - DELETE /api/companies/{id} - Delete company
   - POST /api/seed - Seed sample data
+  - POST /api/migrate-schema - Migrate schema (one-time)
 
 #### Frontend (2024-11-26)
 - [x] Company cards grid layout
@@ -44,6 +47,13 @@ A RAG-based web application that analyzes Terms and Conditions from major compan
 - [x] Add company form
 - [x] Sample data loading button
 - [x] Responsive design
+- [x] Tabbed interface for Terms/Cookie/Privacy policies
+- [x] Upload cookie policy (text or URL)
+- [x] Upload privacy policy (text or URL)
+- [x] Display cookie policy risks and summary
+- [x] Display privacy policy risks and summary
+- [x] Re-analyze individual policy types
+- [x] Combined risk counts on company cards
 
 ### API Endpoints
 
@@ -55,12 +65,15 @@ A RAG-based web application that analyzes Terms and Conditions from major compan
 | POST | /api/companies/{id}/analyze | Analyze T&C |
 | POST | /api/companies/{id}/cookie | Upload and analyze cookie policy |
 | POST | /api/companies/{id}/analyze-cookie | Re-analyze cookie policy |
+| POST | /api/companies/{id}/privacy | Upload and analyze privacy policy |
+| POST | /api/companies/{id}/analyze-privacy | Re-analyze privacy policy |
 | POST | /api/companies/{id}/chat | Chat about specific company |
 | POST | /api/chat | RAG chat across all companies |
 | POST | /api/index-all | Index all companies in vector DB |
 | GET | /api/vector-stats | Vector database statistics |
 | DELETE | /api/companies/{id} | Delete company |
 | POST | /api/seed | Load sample data |
+| POST | /api/migrate-schema | One-time schema migration |
 
 ### Sample Companies Included
 - Facebook

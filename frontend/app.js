@@ -3,6 +3,8 @@ const API_URL = '';
 let companies = [];
 let currentCompany = null;
 let inputMode = 'paste'; // 'paste' or 'url'
+let policyInputMode = 'paste'; // for policy upload modal
+let currentPolicyTab = 'terms';
 
 // DOM Elements
 const companiesGrid = document.getElementById('companiesGrid');
@@ -35,9 +37,11 @@ function setupEventListeners() {
     });
 
     // Click outside modal to close
+    const uploadPolicyModal = document.getElementById('uploadPolicyModal');
     window.addEventListener('click', (e) => {
         if (e.target === companyModal) companyModal.style.display = 'none';
         if (e.target === addModal) addModal.style.display = 'none';
+        if (e.target === uploadPolicyModal) uploadPolicyModal.style.display = 'none';
     });
 
     // Add company form
@@ -56,6 +60,12 @@ function setupEventListeners() {
 
     // Toggle terms visibility
     document.getElementById('toggleTermsBtn').addEventListener('click', toggleTerms);
+    
+    // Toggle cookie text visibility
+    document.getElementById('toggleCookieBtn').addEventListener('click', toggleCookieText);
+    
+    // Toggle privacy text visibility
+    document.getElementById('togglePrivacyBtn').addEventListener('click', togglePrivacyText);
 }
 
 async function loadCompanies() {
@@ -84,11 +94,16 @@ async function loadCompanies() {
 
 function renderCompanies() {
     companiesGrid.innerHTML = companies.map(company => {
-        const risks = company.risks || [];
+        // Combine risks from all three policy types
+        const termsRisks = company.terms_risks || [];
+        const cookieRisks = company.cookie_risks || [];
+        const privacyRisks = company.privacy_risks || [];
+        const allRisks = [...termsRisks, ...cookieRisks, ...privacyRisks];
+        
         const riskCounts = {
-            high: risks.filter(r => r.severity === 'high').length,
-            medium: risks.filter(r => r.severity === 'medium').length,
-            low: risks.filter(r => r.severity === 'low').length
+            high: allRisks.filter(r => r.severity === 'high').length,
+            medium: allRisks.filter(r => r.severity === 'medium').length,
+            low: allRisks.filter(r => r.severity === 'low').length
         };
 
         const iconContent = company.icon_url
@@ -121,36 +136,154 @@ function showCompanyDetails(companyId) {
     document.getElementById('modalIcon').innerHTML = iconContent;
     document.getElementById('modalCompanyName').textContent = currentCompany.name;
     document.getElementById('modalCategory').textContent = currentCompany.category;
-    document.getElementById('modalSummary').textContent = currentCompany.summary || 'No summary available. Click "Analyze with AI" to generate one.';
+    
+    // Populate Terms tab
+    populateTermsTab();
+    
+    // Populate Cookie tab
+    populateCookieTab();
+    
+    // Populate Privacy tab
+    populatePrivacyTab();
+    
+    // Update tab badges
+    updateTabBadges();
+    
+    // Reset to terms tab
+    switchPolicyTab('terms');
+
+    companyModal.style.display = 'block';
+}
+
+function populateTermsTab() {
+    document.getElementById('modalSummary').textContent = currentCompany.terms_summary || 'No summary available. Click "Analyze with AI" to generate one.';
 
     const risksList = document.getElementById('risksList');
-    const risks = currentCompany.risks || [];
+    const risks = currentCompany.terms_risks || [];
 
     if (risks.length === 0) {
         risksList.innerHTML = '<p class="no-risks">No risks analyzed yet. Click "Analyze with AI" to identify privacy risks.</p>';
     } else {
-        risksList.innerHTML = risks.map(risk => `
-            <div class="risk-item ${risk.severity}">
-                <h4>
-                    ${risk.title}
-                    <span class="severity-badge ${risk.severity}">${risk.severity}</span>
-                </h4>
-                <p>${risk.description}</p>
-            </div>
-        `).join('');
+        risksList.innerHTML = renderRisksList(risks);
     }
 
     // Populate and reset terms section
     document.getElementById('originalTerms').textContent = currentCompany.terms_text || 'No terms text available.';
     document.getElementById('termsContent').style.display = 'none';
     document.getElementById('toggleTermsBtn').classList.remove('active');
+}
 
-    companyModal.style.display = 'block';
+function populateCookieTab() {
+    const hasCookiePolicy = currentCompany.cookie_text && currentCompany.cookie_text.trim();
+    
+    document.getElementById('cookiePolicyEmpty').style.display = hasCookiePolicy ? 'none' : 'block';
+    document.getElementById('cookiePolicyData').style.display = hasCookiePolicy ? 'block' : 'none';
+    
+    if (hasCookiePolicy) {
+        document.getElementById('cookieSummary').textContent = currentCompany.cookie_summary || 'No summary available. Click "Re-analyze" to generate one.';
+        
+        const cookieRisksList = document.getElementById('cookieRisksList');
+        const cookieRisks = currentCompany.cookie_risks || [];
+        
+        if (cookieRisks.length === 0) {
+            cookieRisksList.innerHTML = '<p class="no-risks">No cookie risks analyzed yet.</p>';
+        } else {
+            cookieRisksList.innerHTML = renderRisksList(cookieRisks);
+        }
+        
+        document.getElementById('originalCookieText').textContent = currentCompany.cookie_text;
+        document.getElementById('cookieTextContent').style.display = 'none';
+        document.getElementById('toggleCookieBtn').classList.remove('active');
+    }
+}
+
+function populatePrivacyTab() {
+    const hasPrivacyPolicy = currentCompany.privacy_text && currentCompany.privacy_text.trim();
+    
+    document.getElementById('privacyPolicyEmpty').style.display = hasPrivacyPolicy ? 'none' : 'block';
+    document.getElementById('privacyPolicyData').style.display = hasPrivacyPolicy ? 'block' : 'none';
+    
+    if (hasPrivacyPolicy) {
+        document.getElementById('privacySummary').textContent = currentCompany.privacy_summary || 'No summary available. Click "Re-analyze" to generate one.';
+        
+        const privacyRisksList = document.getElementById('privacyRisksList');
+        const privacyRisks = currentCompany.privacy_risks || [];
+        
+        if (privacyRisks.length === 0) {
+            privacyRisksList.innerHTML = '<p class="no-risks">No privacy risks analyzed yet.</p>';
+        } else {
+            privacyRisksList.innerHTML = renderRisksList(privacyRisks);
+        }
+        
+        document.getElementById('originalPrivacyText').textContent = currentCompany.privacy_text;
+        document.getElementById('privacyTextContent').style.display = 'none';
+        document.getElementById('togglePrivacyBtn').classList.remove('active');
+    }
+}
+
+function renderRisksList(risks) {
+    return risks.map(risk => `
+        <div class="risk-item ${risk.severity}">
+            <h4>
+                ${risk.title}
+                <span class="severity-badge ${risk.severity}">${risk.severity}</span>
+            </h4>
+            <p>${risk.description}</p>
+        </div>
+    `).join('');
+}
+
+function updateTabBadges() {
+    const termsRisks = currentCompany.terms_risks || [];
+    const cookieRisks = currentCompany.cookie_risks || [];
+    const privacyRisks = currentCompany.privacy_risks || [];
+    
+    updateBadge('termsRiskCount', termsRisks.length);
+    updateBadge('cookieRiskCount', cookieRisks.length);
+    updateBadge('privacyRiskCount', privacyRisks.length);
+}
+
+function updateBadge(elementId, count) {
+    const badge = document.getElementById(elementId);
+    if (count > 0) {
+        badge.textContent = count;
+        badge.classList.add('has-risks');
+    } else {
+        badge.textContent = '';
+        badge.classList.remove('has-risks');
+    }
+}
+
+function switchPolicyTab(tabName) {
+    currentPolicyTab = tabName;
+    
+    // Update tab buttons
+    document.querySelectorAll('.policy-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.tab === tabName);
+    });
+    
+    // Update tab contents
+    document.querySelectorAll('.policy-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.getElementById(`${tabName}TabContent`).classList.add('active');
 }
 
 function toggleTerms() {
-    const btn = document.getElementById('toggleTermsBtn');
-    const content = document.getElementById('termsContent');
+    togglePolicyText('toggleTermsBtn', 'termsContent');
+}
+
+function toggleCookieText() {
+    togglePolicyText('toggleCookieBtn', 'cookieTextContent');
+}
+
+function togglePrivacyText() {
+    togglePolicyText('togglePrivacyBtn', 'privacyTextContent');
+}
+
+function togglePolicyText(btnId, contentId) {
+    const btn = document.getElementById(btnId);
+    const content = document.getElementById(contentId);
 
     if (content.style.display === 'none') {
         content.style.display = 'block';
@@ -317,6 +450,182 @@ async function deleteCompany() {
     } catch (error) {
         console.error('Error deleting company:', error);
         alert('Error deleting company. Please try again.');
+    }
+}
+
+// ==================== Policy Upload Functions ====================
+
+function showUploadPolicyModal(policyType) {
+    document.getElementById('policyType').value = policyType;
+    
+    const titles = {
+        'cookie': 'Upload Cookie Policy',
+        'privacy': 'Upload Privacy Policy'
+    };
+    document.getElementById('uploadPolicyTitle').textContent = titles[policyType] || 'Upload Policy';
+    
+    // Reset form
+    document.getElementById('uploadPolicyForm').reset();
+    setPolicyInputMode('paste');
+    
+    document.getElementById('uploadPolicyModal').style.display = 'block';
+}
+
+function closeUploadPolicyModal() {
+    document.getElementById('uploadPolicyModal').style.display = 'none';
+}
+
+function setPolicyInputMode(mode) {
+    policyInputMode = mode;
+    const pasteBtn = document.getElementById('policyTogglePaste');
+    const urlBtn = document.getElementById('policyToggleUrl');
+    const pasteGroup = document.getElementById('policyPasteGroup');
+    const urlGroup = document.getElementById('policyUrlGroup');
+
+    if (mode === 'paste') {
+        pasteBtn.classList.add('active');
+        urlBtn.classList.remove('active');
+        pasteGroup.style.display = 'block';
+        urlGroup.style.display = 'none';
+    } else {
+        pasteBtn.classList.remove('active');
+        urlBtn.classList.add('active');
+        pasteGroup.style.display = 'none';
+        urlGroup.style.display = 'block';
+    }
+}
+
+async function handleUploadPolicy(e) {
+    e.preventDefault();
+    
+    if (!currentCompany) return;
+    
+    const policyType = document.getElementById('policyType').value;
+    const policyText = document.getElementById('policyText').value;
+    const policyUrl = document.getElementById('policyUrl').value;
+    
+    // Validation
+    if (policyInputMode === 'paste' && !policyText.trim()) {
+        alert('Please paste the policy text.');
+        return;
+    }
+    if (policyInputMode === 'url' && !policyUrl.trim()) {
+        alert('Please enter the URL for the policy.');
+        return;
+    }
+    
+    const submitBtn = document.getElementById('uploadPolicySubmitBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = policyInputMode === 'url' ? 'Fetching & Analyzing...' : 'Analyzing...';
+    
+    // Build request body based on policy type
+    const requestBody = {};
+    if (policyInputMode === 'paste') {
+        requestBody[`${policyType}_text`] = policyText;
+    } else {
+        requestBody[`${policyType}_url`] = policyUrl;
+    }
+    
+    try {
+        const response = await fetch(`${API_URL}/api/companies/${currentCompany.id}/${policyType}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+        
+        const responseData = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(responseData.detail || 'Failed to upload policy');
+        }
+        
+        // Update local data
+        const index = companies.findIndex(c => c.id === currentCompany.id);
+        if (index !== -1) {
+            companies[index] = responseData;
+            currentCompany = responseData;
+        }
+        
+        closeUploadPolicyModal();
+        
+        // Refresh the modal content
+        if (policyType === 'cookie') {
+            populateCookieTab();
+        } else if (policyType === 'privacy') {
+            populatePrivacyTab();
+        }
+        updateTabBadges();
+        
+    } catch (error) {
+        console.error('Error uploading policy:', error);
+        alert(error.message || 'Error uploading policy. Please try again.');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Upload & Analyze';
+    }
+}
+
+async function analyzeCookiePolicy() {
+    if (!currentCompany) return;
+    
+    const cookieRisksList = document.getElementById('cookieRisksList');
+    cookieRisksList.innerHTML = '<div class="analyzing"><div class="spinner"></div><span>AI is analyzing the cookie policy...</span></div>';
+    
+    try {
+        const response = await fetch(`${API_URL}/api/companies/${currentCompany.id}/analyze-cookie`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Analysis failed');
+        
+        const updatedCompany = await response.json();
+        
+        // Update local data
+        const index = companies.findIndex(c => c.id === currentCompany.id);
+        if (index !== -1) {
+            companies[index] = updatedCompany;
+            currentCompany = updatedCompany;
+        }
+        
+        // Refresh the cookie tab
+        populateCookieTab();
+        updateTabBadges();
+        
+    } catch (error) {
+        console.error('Error analyzing cookie policy:', error);
+        cookieRisksList.innerHTML = '<p class="no-risks" style="color: #f44336;">Analysis failed. Please try again.</p>';
+    }
+}
+
+async function analyzePrivacyPolicy() {
+    if (!currentCompany) return;
+    
+    const privacyRisksList = document.getElementById('privacyRisksList');
+    privacyRisksList.innerHTML = '<div class="analyzing"><div class="spinner"></div><span>AI is analyzing the privacy policy...</span></div>';
+    
+    try {
+        const response = await fetch(`${API_URL}/api/companies/${currentCompany.id}/analyze-privacy`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Analysis failed');
+        
+        const updatedCompany = await response.json();
+        
+        // Update local data
+        const index = companies.findIndex(c => c.id === currentCompany.id);
+        if (index !== -1) {
+            companies[index] = updatedCompany;
+            currentCompany = updatedCompany;
+        }
+        
+        // Refresh the privacy tab
+        populatePrivacyTab();
+        updateTabBadges();
+        
+    } catch (error) {
+        console.error('Error analyzing privacy policy:', error);
+        privacyRisksList.innerHTML = '<p class="no-risks" style="color: #f44336;">Analysis failed. Please try again.</p>';
     }
 }
 
