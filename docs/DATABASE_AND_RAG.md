@@ -81,8 +81,11 @@ erDiagram
         string category "social|dating|streaming|professional|ecommerce|gaming|finance|other"
         string icon_url "URL to company logo"
         string terms_text "Full T&C text"
-        string summary "AI-generated summary"
-        list risks "Array of Risk objects"
+        string summary "AI-generated T&C summary"
+        list risks "Array of Risk objects for T&C"
+        string cookie_text "Full cookie policy text"
+        string cookie_summary "AI-generated cookie summary"
+        list cookie_risks "Array of Risk objects for cookies"
         string last_updated "ISO timestamp"
     }
 
@@ -109,6 +112,15 @@ erDiagram
     {
       "title": "Extensive Professional Data Collection",
       "description": "LinkedIn collects comprehensive professional information...",
+      "severity": "medium"
+    }
+  ],
+  "cookie_text": "LinkedIn Cookie Policy...",
+  "cookie_summary": "LinkedIn uses cookies for analytics, advertising, and functionality...",
+  "cookie_risks": [
+    {
+      "title": "Third-Party Advertising Cookies",
+      "description": "LinkedIn shares cookie data with advertising partners...",
       "severity": "medium"
     }
   ],
@@ -459,7 +471,9 @@ flowchart TD
 | `/api/companies` | GET | List all companies |
 | `/api/companies/{id}` | GET | Get single company |
 | `/api/companies` | POST | Create company + analyze |
-| `/api/companies/{id}/analyze` | POST | Re-analyze company |
+| `/api/companies/{id}/analyze` | POST | Re-analyze company T&C |
+| `/api/companies/{id}/cookie` | POST | Upload and analyze cookie policy |
+| `/api/companies/{id}/analyze-cookie` | POST | Re-analyze cookie policy |
 | `/api/companies/{id}` | DELETE | Delete company |
 | `/api/chat` | POST | RAG-powered chat |
 | `/api/index-all` | POST | Index all companies |

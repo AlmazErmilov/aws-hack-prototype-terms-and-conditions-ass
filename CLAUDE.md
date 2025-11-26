@@ -60,6 +60,8 @@ Region: `us-west-2`. Requires environment variables:
 | `/api/companies` | GET/POST | List all / Create with analysis (supports URL scraping) |
 | `/api/companies/{id}` | GET/DELETE | Get / Delete company |
 | `/api/companies/{id}/analyze` | POST | Re-analyze T&C |
+| `/api/companies/{id}/cookie` | POST | Upload and analyze cookie policy |
+| `/api/companies/{id}/analyze-cookie` | POST | Re-analyze cookie policy |
 | `/api/companies/{id}/chat` | POST | Chat about specific company |
 | `/api/chat` | POST | RAG chat (optional `company_id` filter) |
 | `/api/index-all` | POST | Index all companies in vector DB |

@@ -76,7 +76,8 @@ class DynamoDBService:
 
     def create_company(self, name: str, category: str, terms_text: str,
                        risks: List[Dict] = None, summary: str = None,
-                       icon_url: str = None) -> Dict[str, Any]:
+                       icon_url: str = None, cookie_text: str = None,
+                       cookie_summary: str = None, cookie_risks: List[Dict] = None) -> Dict[str, Any]:
         """Create a new company entry"""
         company_id = str(uuid.uuid4())
 
@@ -88,7 +89,11 @@ class DynamoDBService:
             'risks': risks or [],
             'summary': summary or '',
             'icon_url': icon_url or '',
-            'last_updated': datetime.utcnow().isoformat()
+            'last_updated': datetime.utcnow().isoformat(),
+            # Cookie policy fields
+            'cookie_text': cookie_text or '',
+            'cookie_summary': cookie_summary or '',
+            'cookie_risks': cookie_risks or []
         }
 
         self.table.put_item(Item=item)
@@ -109,6 +114,39 @@ class DynamoDBService:
             return True
         except Exception as e:
             print(f"Error updating company: {e}")
+            return False
+
+    def update_cookie_text(self, company_id: str, cookie_text: str) -> bool:
+        """Update company with cookie policy text"""
+        try:
+            self.table.update_item(
+                Key={'id': company_id},
+                UpdateExpression='SET cookie_text = :ct, last_updated = :u',
+                ExpressionAttributeValues={
+                    ':ct': cookie_text,
+                    ':u': datetime.utcnow().isoformat()
+                }
+            )
+            return True
+        except Exception as e:
+            print(f"Error updating cookie text: {e}")
+            return False
+
+    def update_company_cookie_analysis(self, company_id: str, cookie_risks: List[Dict], cookie_summary: str) -> bool:
+        """Update company with cookie policy analysis results"""
+        try:
+            self.table.update_item(
+                Key={'id': company_id},
+                UpdateExpression='SET cookie_risks = :cr, cookie_summary = :cs, last_updated = :u',
+                ExpressionAttributeValues={
+                    ':cr': cookie_risks,
+                    ':cs': cookie_summary,
+                    ':u': datetime.utcnow().isoformat()
+                }
+            )
+            return True
+        except Exception as e:
+            print(f"Error updating cookie analysis: {e}")
             return False
 
     def delete_company(self, company_id: str) -> bool:

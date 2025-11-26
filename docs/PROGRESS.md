@@ -22,11 +22,14 @@ A RAG-based web application that analyzes Terms and Conditions from major compan
 - [x] OpenSearch Serverless for vector storage
 - [x] RAG-powered chat functionality
 - [x] URL scraping for T&C documents
+- [x] Cookie policy analysis support
 - [x] REST API endpoints:
   - GET /api/companies - List all companies
   - GET /api/companies/{id} - Get company details
   - POST /api/companies - Create new company with T&C (supports URL scraping)
   - POST /api/companies/{id}/analyze - Analyze company's T&C
+  - POST /api/companies/{id}/cookie - Upload and analyze cookie policy
+  - POST /api/companies/{id}/analyze-cookie - Re-analyze cookie policy
   - POST /api/companies/{id}/chat - Chat about specific company
   - POST /api/chat - RAG chat across all companies
   - POST /api/index-all - Index all companies in vector DB
@@ -50,6 +53,8 @@ A RAG-based web application that analyzes Terms and Conditions from major compan
 | GET | /api/companies/{id} | Get company by ID |
 | POST | /api/companies | Create company (supports URL scraping) |
 | POST | /api/companies/{id}/analyze | Analyze T&C |
+| POST | /api/companies/{id}/cookie | Upload and analyze cookie policy |
+| POST | /api/companies/{id}/analyze-cookie | Re-analyze cookie policy |
 | POST | /api/companies/{id}/chat | Chat about specific company |
 | POST | /api/chat | RAG chat across all companies |
 | POST | /api/index-all | Index all companies in vector DB |

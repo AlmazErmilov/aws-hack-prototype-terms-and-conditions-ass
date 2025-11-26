@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, FileResponse
 from typing import List
 import os
 
-from models import Company, CompanyCreate, CompanyResponse, Risk, UploadTermsRequest
+from models import Company, CompanyCreate, CompanyResponse, Risk, UploadTermsRequest, UploadCookieRequest
 from services import BedrockService, DynamoDBService, ScraperService, VectorDBService
 
 app = FastAPI(
@@ -151,6 +151,77 @@ async def analyze_company(company_id: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+@app.post("/api/companies/{company_id}/cookie", response_model=CompanyResponse)
+async def upload_cookie_policy(company_id: str, request: UploadCookieRequest):
+    """Upload cookie policy for a company"""
+    company = db_service.get_company(company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    # Get cookie text - either from direct input or by scraping URL
+    cookie_text = request.cookie_text
+
+    if request.cookie_url and not cookie_text:
+        try:
+            cookie_text = scraper_service.fetch_terms_from_url(request.cookie_url)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    if not cookie_text:
+        raise HTTPException(status_code=400, detail="Either cookie_text or cookie_url is required")
+
+    # Update company with cookie text
+    db_service.update_cookie_text(company_id, cookie_text)
+
+    # Analyze cookie policy using Bedrock
+    try:
+        analysis = bedrock_service.analyze_cookie_policy(
+            company_name=company['name'],
+            cookie_text=cookie_text
+        )
+
+        # Update company with cookie analysis
+        db_service.update_company_cookie_analysis(
+            company_id=company_id,
+            cookie_risks=analysis.get('cookie_risks', []),
+            cookie_summary=analysis.get('cookie_summary', '')
+        )
+
+        return db_service.get_company(company_id)
+
+    except Exception as e:
+        print(f"Cookie analysis failed: {e}")
+        return db_service.get_company(company_id)
+
+
+@app.post("/api/companies/{company_id}/analyze-cookie", response_model=CompanyResponse)
+async def analyze_cookie_policy(company_id: str):
+    """Analyze or re-analyze a company's cookie policy"""
+    company = db_service.get_company(company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    if not company.get('cookie_text'):
+        raise HTTPException(status_code=400, detail="No cookie policy text available for analysis")
+
+    try:
+        analysis = bedrock_service.analyze_cookie_policy(
+            company_name=company['name'],
+            cookie_text=company['cookie_text']
+        )
+
+        db_service.update_company_cookie_analysis(
+            company_id=company_id,
+            cookie_risks=analysis.get('cookie_risks', []),
+            cookie_summary=analysis.get('cookie_summary', '')
+        )
+
+        return db_service.get_company(company_id)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cookie analysis failed: {str(e)}")
 
 
 @app.delete("/api/companies/{company_id}")

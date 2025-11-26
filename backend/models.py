@@ -18,6 +18,10 @@ class Company(BaseModel):
     summary: Optional[str] = None
     last_updated: Optional[str] = None
     terms_text: Optional[str] = None
+    # Cookie policy fields
+    cookie_text: Optional[str] = None
+    cookie_summary: Optional[str] = None
+    cookie_risks: List[Risk] = []
 
 
 class CompanyCreate(BaseModel):
@@ -35,6 +39,10 @@ class CompanyResponse(BaseModel):
     summary: Optional[str] = None
     last_updated: Optional[str] = None
     terms_text: Optional[str] = None
+    # Cookie policy fields
+    cookie_text: Optional[str] = None
+    cookie_summary: Optional[str] = None
+    cookie_risks: List[Risk] = []
 
 
 class RiskAnalysisRequest(BaseModel):
@@ -46,3 +54,8 @@ class UploadTermsRequest(BaseModel):
     category: str
     terms_text: Optional[str] = None
     terms_url: Optional[str] = None
+
+
+class UploadCookieRequest(BaseModel):
+    cookie_text: Optional[str] = None
+    cookie_url: Optional[str] = None
