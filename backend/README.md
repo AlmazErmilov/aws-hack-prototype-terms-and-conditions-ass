@@ -63,10 +63,11 @@ Manages company data in DynamoDB:
 | `get_all_companies()` | List all companies |
 | `get_company(id)` | Get single company by ID |
 | `create_company()` | Create new company entry |
-| `update_company_analysis()` | Update T&C risks and summary |
+| `update_company_analysis()` | Update T&C terms_risks and summary |
 | `update_cookie_text()` | Update cookie policy text |
 | `update_company_cookie_analysis()` | Update cookie risks and summary |
 | `delete_company(id)` | Delete company |
+| `migrate_risks_to_terms_risks()` | Migrate old risks → terms_risks field |
 | `seed_sample_data()` | Load sample companies |
 
 **Table:** `TermsAndConditions` (auto-created on first use)
@@ -112,6 +113,7 @@ Fetches T&C from URLs:
 | GET | `/api/vector-stats` | Vector database statistics |
 | DELETE | `/api/companies/{id}` | Delete company |
 | POST | `/api/seed` | Load sample data |
+| POST | `/api/migrate-risks` | Migrate risks → terms_risks (one-time) |
 
 ## Pydantic Models
 
@@ -128,7 +130,7 @@ class Company:
     icon_url: Optional[str]
     terms_text: Optional[str]
     summary: Optional[str]
-    risks: List[Risk]
+    terms_risks: List[Risk]
     # Cookie policy fields
     cookie_text: Optional[str]
     cookie_summary: Optional[str]

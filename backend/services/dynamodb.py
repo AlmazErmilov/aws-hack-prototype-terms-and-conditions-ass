@@ -75,7 +75,7 @@ class DynamoDBService:
         return response.get('Item')
 
     def create_company(self, name: str, category: str, terms_text: str,
-                       risks: List[Dict] = None, summary: str = None,
+                       terms_risks: List[Dict] = None, summary: str = None,
                        icon_url: str = None, cookie_text: str = None,
                        cookie_summary: str = None, cookie_risks: List[Dict] = None) -> Dict[str, Any]:
         """Create a new company entry"""
@@ -86,7 +86,7 @@ class DynamoDBService:
             'name': name,
             'category': category,
             'terms_text': terms_text,
-            'risks': risks or [],
+            'terms_risks': terms_risks or [],
             'summary': summary or '',
             'icon_url': icon_url or '',
             'last_updated': datetime.utcnow().isoformat(),
@@ -99,14 +99,14 @@ class DynamoDBService:
         self.table.put_item(Item=item)
         return item
 
-    def update_company_analysis(self, company_id: str, risks: List[Dict], summary: str) -> bool:
-        """Update company with analysis results"""
+    def update_company_analysis(self, company_id: str, terms_risks: List[Dict], summary: str) -> bool:
+        """Update company with T&C analysis results"""
         try:
             self.table.update_item(
                 Key={'id': company_id},
-                UpdateExpression='SET risks = :r, summary = :s, last_updated = :u',
+                UpdateExpression='SET terms_risks = :r, summary = :s, last_updated = :u',
                 ExpressionAttributeValues={
-                    ':r': risks,
+                    ':r': terms_risks,
                     ':s': summary,
                     ':u': datetime.utcnow().isoformat()
                 }
@@ -156,6 +156,56 @@ class DynamoDBService:
             return True
         except Exception:
             return False
+
+    def migrate_risks_to_terms_risks(self) -> Dict[str, Any]:
+        """
+        Migration: Rename 'risks' field to 'terms_risks' for all existing companies.
+        This copies data from 'risks' to 'terms_risks' and removes the old field.
+        Safe to run multiple times - skips already migrated records.
+        """
+        companies = self.get_all_companies()
+        migrated = 0
+        skipped = 0
+        errors = []
+
+        for company in companies:
+            company_id = company.get('id')
+            has_old_risks = 'risks' in company
+            has_new_terms_risks = 'terms_risks' in company
+
+            # Skip if already migrated (has terms_risks, no risks)
+            if has_new_terms_risks and not has_old_risks:
+                skipped += 1
+                continue
+
+            # Skip if nothing to migrate
+            if not has_old_risks and not has_new_terms_risks:
+                skipped += 1
+                continue
+
+            try:
+                # Get the risks data (prefer old field for migration)
+                risks_data = company.get('risks', company.get('terms_risks', []))
+
+                # Update: set terms_risks and remove old risks field
+                self.table.update_item(
+                    Key={'id': company_id},
+                    UpdateExpression='SET terms_risks = :tr, last_updated = :u REMOVE risks',
+                    ExpressionAttributeValues={
+                        ':tr': risks_data,
+                        ':u': datetime.utcnow().isoformat()
+                    }
+                )
+                migrated += 1
+            except Exception as e:
+                errors.append(f"{company.get('name', company_id)}: {str(e)}")
+
+        return {
+            'migrated': migrated,
+            'skipped': skipped,
+            'total': len(companies),
+            'errors': errors
+        }
 
     def seed_sample_data(self) -> List[Dict[str, Any]]:
         """Seed database with sample companies"""

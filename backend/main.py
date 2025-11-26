@@ -92,7 +92,7 @@ async def create_company(request: UploadTermsRequest):
         # Update company with analysis
         db_service.update_company_analysis(
             company_id=company['id'],
-            risks=analysis.get('risks', []),
+            terms_risks=analysis.get('risks', []),
             summary=analysis.get('summary', '')
         )
 
@@ -133,7 +133,7 @@ async def analyze_company(company_id: str):
 
         db_service.update_company_analysis(
             company_id=company_id,
-            risks=analysis.get('risks', []),
+            terms_risks=analysis.get('risks', []),
             summary=analysis.get('summary', '')
         )
 
@@ -243,6 +243,22 @@ async def seed_database():
     """Seed database with sample companies"""
     created = db_service.seed_sample_data()
     return {"status": "seeded", "companies_created": len(created)}
+
+
+@app.post("/api/migrate-risks")
+async def migrate_risks_field():
+    """
+    One-time migration: Rename 'risks' field to 'terms_risks' in all existing records.
+    Safe to run multiple times - skips already migrated records.
+    """
+    result = db_service.migrate_risks_to_terms_risks()
+    return {
+        "status": "completed",
+        "migrated": result['migrated'],
+        "skipped": result['skipped'],
+        "total": result['total'],
+        "errors": result['errors']
+    }
 
 
 @app.post("/api/companies/{company_id}/chat")

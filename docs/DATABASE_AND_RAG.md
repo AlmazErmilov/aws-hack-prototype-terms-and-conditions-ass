@@ -82,7 +82,7 @@ erDiagram
         string icon_url "URL to company logo"
         string terms_text "Full T&C text"
         string summary "AI-generated T&C summary"
-        list risks "Array of Risk objects for T&C"
+        list terms_risks "Array of Risk objects for T&C"
         string cookie_text "Full cookie policy text"
         string cookie_summary "AI-generated cookie summary"
         list cookie_risks "Array of Risk objects for cookies"
@@ -108,7 +108,7 @@ erDiagram
   "icon_url": "https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png",
   "terms_text": "LinkedIn Terms of Service Summary...",
   "summary": "Users agree to share extensive professional data...",
-  "risks": [
+  "terms_risks": [
     {
       "title": "Extensive Professional Data Collection",
       "description": "LinkedIn collects comprehensive professional information...",
@@ -479,6 +479,7 @@ flowchart TD
 | `/api/index-all` | POST | Index all companies |
 | `/api/vector-stats` | GET | Get vector DB stats |
 | `/api/seed` | POST | Load sample data |
+| `/api/migrate-risks` | POST | Migrate risks → terms_risks field |
 
 ---
 

@@ -67,6 +67,7 @@ Region: `us-west-2`. Requires environment variables:
 | `/api/index-all` | POST | Index all companies in vector DB |
 | `/api/vector-stats` | GET | Vector DB statistics |
 | `/api/seed` | POST | Load sample data |
+| `/api/migrate-risks` | POST | Migrate risks → terms_risks (one-time) |
 
 ## Progress Tracking
 

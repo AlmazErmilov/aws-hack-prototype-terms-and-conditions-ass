@@ -14,7 +14,7 @@ class Company(BaseModel):
     name: str
     icon_url: Optional[str] = None
     category: str  # "social", "dating", "streaming", etc.
-    risks: List[Risk] = []
+    terms_risks: List[Risk] = []
     summary: Optional[str] = None
     last_updated: Optional[str] = None
     terms_text: Optional[str] = None
@@ -35,7 +35,7 @@ class CompanyResponse(BaseModel):
     name: str
     icon_url: Optional[str] = None
     category: str
-    risks: List[Risk] = []
+    terms_risks: List[Risk] = []
     summary: Optional[str] = None
     last_updated: Optional[str] = None
     terms_text: Optional[str] = None
