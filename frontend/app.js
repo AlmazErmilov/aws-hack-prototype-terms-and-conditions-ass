@@ -162,8 +162,18 @@ function showCompanyDetails(companyId) {
     companyModal.style.display = 'block';
 }
 
+// Helper function to render markdown content
+function renderMarkdown(content) {
+    if (typeof marked !== 'undefined' && content) {
+        return marked.parse(content);
+    }
+    return content || '';
+}
+
 function populateTermsTab() {
-    document.getElementById('modalSummary').textContent = currentCompany.terms_summary || 'No summary available. Click "Analyze with AI" to generate one.';
+    const summaryEl = document.getElementById('modalSummary');
+    const summaryContent = currentCompany.terms_summary || 'No summary available. Click "Analyze with AI" to generate one.';
+    summaryEl.innerHTML = renderMarkdown(summaryContent);
 
     const risksList = document.getElementById('risksList');
     const risks = currentCompany.terms_risks || [];
@@ -187,7 +197,9 @@ function populateCookieTab() {
     document.getElementById('cookiePolicyData').style.display = hasCookiePolicy ? 'block' : 'none';
     
     if (hasCookiePolicy) {
-        document.getElementById('cookieSummary').textContent = currentCompany.cookie_summary || 'No summary available. Click "Re-analyze" to generate one.';
+        const cookieSummaryEl = document.getElementById('cookieSummary');
+        const cookieSummaryContent = currentCompany.cookie_summary || 'No summary available. Click "Re-analyze" to generate one.';
+        cookieSummaryEl.innerHTML = renderMarkdown(cookieSummaryContent);
         
         const cookieRisksList = document.getElementById('cookieRisksList');
         const cookieRisks = currentCompany.cookie_risks || [];
@@ -211,7 +223,9 @@ function populatePrivacyTab() {
     document.getElementById('privacyPolicyData').style.display = hasPrivacyPolicy ? 'block' : 'none';
     
     if (hasPrivacyPolicy) {
-        document.getElementById('privacySummary').textContent = currentCompany.privacy_summary || 'No summary available. Click "Re-analyze" to generate one.';
+        const privacySummaryEl = document.getElementById('privacySummary');
+        const privacySummaryContent = currentCompany.privacy_summary || 'No summary available. Click "Re-analyze" to generate one.';
+        privacySummaryEl.innerHTML = renderMarkdown(privacySummaryContent);
         
         const privacyRisksList = document.getElementById('privacyRisksList');
         const privacyRisks = currentCompany.privacy_risks || [];
@@ -847,7 +861,13 @@ function addChatMessage(content, role) {
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
-    contentDiv.textContent = content;
+
+    // Render markdown for assistant messages, plain text for user
+    if (role === 'assistant' && typeof marked !== 'undefined') {
+        contentDiv.innerHTML = marked.parse(content);
+    } else {
+        contentDiv.textContent = content;
+    }
 
     messageDiv.appendChild(contentDiv);
     messagesContainer.appendChild(messageDiv);
