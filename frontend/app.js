@@ -3,6 +3,9 @@ const API_URL = '';
 let companies = [];
 let currentCompany = null;
 let inputMode = 'paste'; // 'paste' or 'url'
+let cookieInputMode = 'paste'; // 'paste' or 'url'
+let privacyInputMode = 'paste'; // 'paste' or 'url'
+let currentTab = 'terms'; // 'terms', 'cookies', 'privacy', or 'all'
 
 // DOM Elements
 const companiesGrid = document.getElementById('companiesGrid');
@@ -10,6 +13,8 @@ const loading = document.getElementById('loading');
 const emptyState = document.getElementById('emptyState');
 const companyModal = document.getElementById('companyModal');
 const addModal = document.getElementById('addModal');
+const cookieModal = document.getElementById('cookieModal');
+const privacyModal = document.getElementById('privacyModal');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -18,8 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupEventListeners() {
-    // Seed button
+    // Seed buttons
     document.getElementById('seedBtn').addEventListener('click', seedDatabase);
+    document.getElementById('seedRealBtn').addEventListener('click', seedRealData);
+    document.getElementById('analyzeAllBtn').addEventListener('click', analyzeAllCompanies);
 
     // Add company button
     document.getElementById('addCompanyBtn').addEventListener('click', () => {
@@ -31,6 +38,8 @@ function setupEventListeners() {
         btn.addEventListener('click', () => {
             companyModal.style.display = 'none';
             addModal.style.display = 'none';
+            cookieModal.style.display = 'none';
+            privacyModal.style.display = 'none';
         });
     });
 
@@ -38,6 +47,8 @@ function setupEventListeners() {
     window.addEventListener('click', (e) => {
         if (e.target === companyModal) companyModal.style.display = 'none';
         if (e.target === addModal) addModal.style.display = 'none';
+        if (e.target === cookieModal) cookieModal.style.display = 'none';
+        if (e.target === privacyModal) privacyModal.style.display = 'none';
     });
 
     // Add company form
@@ -56,6 +67,28 @@ function setupEventListeners() {
 
     // Toggle terms visibility
     document.getElementById('toggleTermsBtn').addEventListener('click', toggleTerms);
+    document.getElementById('toggleCookieBtn').addEventListener('click', toggleCookie);
+    document.getElementById('togglePrivacyBtn').addEventListener('click', togglePrivacy);
+
+    // Cookie policy buttons
+    document.getElementById('uploadCookieBtn').addEventListener('click', () => {
+        cookieModal.style.display = 'block';
+    });
+    document.getElementById('cancelCookieBtn').addEventListener('click', () => {
+        cookieModal.style.display = 'none';
+    });
+    document.getElementById('uploadCookieForm').addEventListener('submit', handleUploadCookie);
+    document.getElementById('analyzeCookieBtn').addEventListener('click', analyzeCookiePolicy);
+
+    // Privacy policy buttons
+    document.getElementById('uploadPrivacyBtn').addEventListener('click', () => {
+        privacyModal.style.display = 'block';
+    });
+    document.getElementById('cancelPrivacyBtn').addEventListener('click', () => {
+        privacyModal.style.display = 'none';
+    });
+    document.getElementById('uploadPrivacyForm').addEventListener('submit', handleUploadPrivacy);
+    document.getElementById('analyzePrivacyBtn').addEventListener('click', analyzePrivacyPolicy);
 }
 
 async function loadCompanies() {
@@ -84,7 +117,8 @@ async function loadCompanies() {
 
 function renderCompanies() {
     companiesGrid.innerHTML = companies.map(company => {
-        const risks = company.risks || [];
+        // Support both old and new schema
+        const risks = company.terms_risks || company.risks || [];
         const riskCounts = {
             high: risks.filter(r => r.severity === 'high').length,
             medium: risks.filter(r => r.severity === 'medium').length,
@@ -121,13 +155,46 @@ function showCompanyDetails(companyId) {
     document.getElementById('modalIcon').innerHTML = iconContent;
     document.getElementById('modalCompanyName').textContent = currentCompany.name;
     document.getElementById('modalCategory').textContent = currentCompany.category;
-    document.getElementById('modalSummary').textContent = currentCompany.summary || 'No summary available. Click "Analyze with AI" to generate one.';
+
+    // Update risk counts in tabs (support both old and new schema)
+    const termsRisks = currentCompany.terms_risks || currentCompany.risks || [];
+    const cookieRisks = currentCompany.cookie_risks || [];
+    const privacyRisks = currentCompany.privacy_risks || [];
+    const totalRisks = termsRisks.length + cookieRisks.length + privacyRisks.length;
+
+    document.getElementById('termsRiskCount').textContent = termsRisks.length || '';
+    document.getElementById('cookiesRiskCount').textContent = cookieRisks.length || '';
+    document.getElementById('privacyRiskCount').textContent = privacyRisks.length || '';
+    document.getElementById('allRiskCount').textContent = totalRisks || '';
+
+    // Populate Terms tab
+    populateTermsTab();
+
+    // Populate Cookies tab
+    populateCookiesTab();
+
+    // Populate Privacy tab
+    populatePrivacyTab();
+
+    // Populate All Combined tab
+    populateAllTab();
+
+    // Reset to terms tab
+    switchDocumentTab('terms');
+
+    companyModal.style.display = 'block';
+}
+
+function populateTermsTab() {
+    // Support both old and new schema
+    const risks = currentCompany.terms_risks || currentCompany.risks || [];
+    
+    document.getElementById('modalSummary').textContent = 
+        currentCompany.terms_summary || currentCompany.summary || 'No summary available. Click "Analyze Terms with AI" to generate one.';
 
     const risksList = document.getElementById('risksList');
-    const risks = currentCompany.risks || [];
-
     if (risks.length === 0) {
-        risksList.innerHTML = '<p class="no-risks">No risks analyzed yet. Click "Analyze with AI" to identify privacy risks.</p>';
+        risksList.innerHTML = '<p class="no-risks">No risks analyzed yet. Click "Analyze Terms with AI" to identify privacy risks.</p>';
     } else {
         risksList.innerHTML = risks.map(risk => `
             <div class="risk-item ${risk.severity}">
@@ -140,12 +207,155 @@ function showCompanyDetails(companyId) {
         `).join('');
     }
 
-    // Populate and reset terms section
     document.getElementById('originalTerms').textContent = currentCompany.terms_text || 'No terms text available.';
     document.getElementById('termsContent').style.display = 'none';
     document.getElementById('toggleTermsBtn').classList.remove('active');
+}
 
-    companyModal.style.display = 'block';
+function populateCookiesTab() {
+    const cookieRisks = currentCompany.cookie_risks || [];
+    const hasCookiePolicy = currentCompany.cookie_text;
+
+    document.getElementById('modalCookieSummary').textContent = 
+        currentCompany.cookie_summary || (hasCookiePolicy ? 'Click "Analyze Cookie Policy" to generate summary.' : 'No cookie policy uploaded yet.');
+
+    const cookieRisksList = document.getElementById('cookieRisksList');
+    if (cookieRisks.length === 0) {
+        cookieRisksList.innerHTML = hasCookiePolicy 
+            ? '<p class="no-risks">No risks analyzed yet. Click "Analyze Cookie Policy" to identify tracking risks.</p>'
+            : '<p class="no-risks">Upload a cookie policy to analyze tracking and privacy risks.</p>';
+    } else {
+        cookieRisksList.innerHTML = cookieRisks.map(risk => `
+            <div class="risk-item ${risk.severity}">
+                <h4>
+                    ${risk.title}
+                    <span class="severity-badge ${risk.severity}">${risk.severity}</span>
+                </h4>
+                <p>${risk.description}</p>
+            </div>
+        `).join('');
+    }
+
+    document.getElementById('originalCookie').textContent = currentCompany.cookie_text || 'No cookie policy available.';
+    document.getElementById('cookieContent').style.display = 'none';
+    document.getElementById('toggleCookieBtn').classList.remove('active');
+
+    // Show/hide analyze button based on whether cookie policy exists
+    document.getElementById('analyzeCookieBtn').style.display = hasCookiePolicy ? 'inline-block' : 'none';
+}
+
+function populatePrivacyTab() {
+    const privacyRisks = currentCompany.privacy_risks || [];
+    const hasPrivacyPolicy = currentCompany.privacy_text;
+
+    document.getElementById('modalPrivacySummary').textContent = 
+        currentCompany.privacy_summary || (hasPrivacyPolicy ? 'Click "Analyze Privacy Policy" to generate summary.' : 'No privacy policy uploaded yet.');
+
+    const privacyRisksList = document.getElementById('privacyRisksList');
+    if (privacyRisks.length === 0) {
+        privacyRisksList.innerHTML = hasPrivacyPolicy 
+            ? '<p class="no-risks">No risks analyzed yet. Click "Analyze Privacy Policy" to identify privacy risks.</p>'
+            : '<p class="no-risks">Upload a privacy policy to analyze data protection and privacy risks.</p>';
+    } else {
+        privacyRisksList.innerHTML = privacyRisks.map(risk => `
+            <div class="risk-item ${risk.severity}">
+                <h4>
+                    ${risk.title}
+                    <span class="severity-badge ${risk.severity}">${risk.severity}</span>
+                </h4>
+                <p>${risk.description}</p>
+            </div>
+        `).join('');
+    }
+
+    document.getElementById('originalPrivacy').textContent = currentCompany.privacy_text || 'No privacy policy available.';
+    document.getElementById('privacyContent').style.display = 'none';
+    document.getElementById('togglePrivacyBtn').classList.remove('active');
+
+    // Show/hide analyze button based on whether privacy policy exists
+    document.getElementById('analyzePrivacyBtn').style.display = hasPrivacyPolicy ? 'inline-block' : 'none';
+}
+
+function populateAllTab() {
+    // Support both old and new schema
+    const termsRisks = currentCompany.terms_risks || currentCompany.risks || [];
+    const cookieRisks = currentCompany.cookie_risks || [];
+    const privacyRisks = currentCompany.privacy_risks || [];
+    const allRisks = [...termsRisks, ...cookieRisks, ...privacyRisks];
+
+    // Populate summaries (support both old and new schema)
+    document.getElementById('allTermsSummary').textContent = 
+        currentCompany.terms_summary || currentCompany.summary || 'No terms analysis available.';
+    document.getElementById('allCookieSummary').textContent = 
+        currentCompany.cookie_summary || 'No cookie policy analysis available.';
+    document.getElementById('allPrivacySummary').textContent = 
+        currentCompany.privacy_summary || 'No privacy policy analysis available.';
+
+    // Populate combined risks
+    const allRisksList = document.getElementById('allRisksList');
+    if (allRisks.length === 0) {
+        allRisksList.innerHTML = '<p class="no-risks">No risks analyzed yet. Analyze terms, cookie, and privacy policies to see all privacy risks.</p>';
+    } else {
+        // Group by severity
+        const highRisks = allRisks.filter(r => r.severity === 'high');
+        const mediumRisks = allRisks.filter(r => r.severity === 'medium');
+        const lowRisks = allRisks.filter(r => r.severity === 'low');
+
+        let html = '';
+        
+        if (highRisks.length > 0) {
+            html += '<div class="risk-group"><h4 class="risk-group-title high">🔴 High Risk</h4>';
+            html += highRisks.map(risk => `
+                <div class="risk-item ${risk.severity}">
+                    <h4>${risk.title}</h4>
+                    <p>${risk.description}</p>
+                </div>
+            `).join('');
+            html += '</div>';
+        }
+
+        if (mediumRisks.length > 0) {
+            html += '<div class="risk-group"><h4 class="risk-group-title medium">🟡 Medium Risk</h4>';
+            html += mediumRisks.map(risk => `
+                <div class="risk-item ${risk.severity}">
+                    <h4>${risk.title}</h4>
+                    <p>${risk.description}</p>
+                </div>
+            `).join('');
+            html += '</div>';
+        }
+
+        if (lowRisks.length > 0) {
+            html += '<div class="risk-group"><h4 class="risk-group-title low">🟢 Low Risk</h4>';
+            html += lowRisks.map(risk => `
+                <div class="risk-item ${risk.severity}">
+                    <h4>${risk.title}</h4>
+                    <p>${risk.description}</p>
+                </div>
+            `).join('');
+            html += '</div>';
+        }
+
+        allRisksList.innerHTML = html;
+    }
+}
+
+function switchDocumentTab(tabName) {
+    currentTab = tabName;
+
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === tabName) {
+            btn.classList.add('active');
+        }
+    });
+
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.getElementById(`${tabName}Tab`).classList.add('active');
 }
 
 function toggleTerms() {
@@ -161,12 +371,84 @@ function toggleTerms() {
     }
 }
 
+function toggleCookie() {
+    const btn = document.getElementById('toggleCookieBtn');
+    const content = document.getElementById('cookieContent');
+
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        btn.classList.add('active');
+    } else {
+        content.style.display = 'none';
+        btn.classList.remove('active');
+    }
+}
+
+function togglePrivacy() {
+    const btn = document.getElementById('togglePrivacyBtn');
+    const content = document.getElementById('privacyContent');
+
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        btn.classList.add('active');
+    } else {
+        content.style.display = 'none';
+        btn.classList.remove('active');
+    }
+}
+
 function setInputMode(mode) {
     inputMode = mode;
     const pasteBtn = document.getElementById('togglePaste');
     const urlBtn = document.getElementById('toggleUrl');
+    const autoBtn = document.getElementById('toggleAuto');
     const pasteGroup = document.getElementById('pasteGroup');
     const urlGroup = document.getElementById('urlGroup');
+    const autoGroup = document.getElementById('autoGroup');
+
+    // Reset all buttons
+    [pasteBtn, urlBtn, autoBtn].forEach(btn => btn.classList.remove('active'));
+    [pasteGroup, urlGroup, autoGroup].forEach(group => group.style.display = 'none');
+
+    // Activate selected mode
+    if (mode === 'paste') {
+        pasteBtn.classList.add('active');
+        pasteGroup.style.display = 'block';
+    } else if (mode === 'url') {
+        urlBtn.classList.add('active');
+        urlGroup.style.display = 'block';
+    } else if (mode === 'auto') {
+        autoBtn.classList.add('active');
+        autoGroup.style.display = 'block';
+    }
+}
+
+function setCookieInputMode(mode) {
+    cookieInputMode = mode;
+    const pasteBtn = document.getElementById('toggleCookiePaste');
+    const urlBtn = document.getElementById('toggleCookieUrl');
+    const pasteGroup = document.getElementById('cookiePasteGroup');
+    const urlGroup = document.getElementById('cookieUrlGroup');
+
+    if (mode === 'paste') {
+        pasteBtn.classList.add('active');
+        urlBtn.classList.remove('active');
+        pasteGroup.style.display = 'block';
+        urlGroup.style.display = 'none';
+    } else {
+        pasteBtn.classList.remove('active');
+        urlBtn.classList.add('active');
+        pasteGroup.style.display = 'none';
+        urlGroup.style.display = 'block';
+    }
+}
+
+function setPrivacyInputMode(mode) {
+    privacyInputMode = mode;
+    const pasteBtn = document.getElementById('togglePrivacyPaste');
+    const urlBtn = document.getElementById('togglePrivacyUrl');
+    const pasteGroup = document.getElementById('privacyPasteGroup');
+    const urlGroup = document.getElementById('privacyUrlGroup');
 
     if (mode === 'paste') {
         pasteBtn.classList.add('active');
@@ -198,45 +480,114 @@ async function seedDatabase() {
     }
 }
 
+async function seedRealData() {
+    const btn = document.getElementById('seedRealBtn');
+    btn.disabled = true;
+    btn.textContent = 'Fetching Real Data...';
+
+    try {
+        const response = await fetch(`${API_URL}/api/seed-with-real-data`, { method: 'POST' });
+        const result = await response.json();
+        
+        if (result.errors && result.errors.length > 0) {
+            console.warn('Some companies had errors:', result.errors);
+        }
+        
+        await loadCompanies();
+        alert(`Successfully loaded ${result.companies_created} companies with real data!`);
+    } catch (error) {
+        console.error('Error seeding real data:', error);
+        alert('Error loading real data. Please try again.');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Load Real Data';
+    }
+}
+
+async function analyzeAllCompanies() {
+    const btn = document.getElementById('analyzeAllBtn');
+    btn.disabled = true;
+    btn.textContent = 'Analyzing...';
+
+    try {
+        const response = await fetch(`${API_URL}/api/analyze-all`, { method: 'POST' });
+        const result = await response.json();
+        
+        if (result.errors && result.errors.length > 0) {
+            console.warn('Some companies had analysis errors:', result.errors);
+        }
+        
+        await loadCompanies();
+        alert(`Successfully analyzed ${result.companies_analyzed} documents! Refresh the page to see the results.`);
+    } catch (error) {
+        console.error('Error analyzing companies:', error);
+        alert('Error analyzing companies. Please try again.');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Analyze All';
+    }
+}
+
 async function handleAddCompany(e) {
     e.preventDefault();
 
     const name = document.getElementById('companyName').value;
     const category = document.getElementById('companyCategory').value;
-    const termsText = document.getElementById('termsText').value;
-    const termsUrl = document.getElementById('termsUrl').value;
 
-    // Validation
-    if (inputMode === 'paste' && !termsText.trim()) {
-        alert('Please paste the terms and conditions text.');
-        return;
-    }
-    if (inputMode === 'url' && !termsUrl.trim()) {
-        alert('Please enter the URL for the terms and conditions.');
-        return;
-    }
-
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.textContent = inputMode === 'url' ? 'Fetching & Analyzing...' : 'Analyzing...';
-
-    // Build request body based on input mode
-    const requestBody = {
+    // Get form data based on input mode
+    let requestData = {
         company_name: name,
         category: category
     };
 
     if (inputMode === 'paste') {
-        requestBody.terms_text = termsText;
-    } else {
-        requestBody.terms_url = termsUrl;
+        const termsText = document.getElementById('termsText').value;
+        const cookieText = document.getElementById('cookieTextAdd').value;
+        const privacyText = document.getElementById('privacyTextAdd').value;
+
+        if (!termsText.trim()) {
+            alert('Please paste at least the terms and conditions text.');
+            return;
+        }
+
+        requestData.terms_text = termsText;
+        if (cookieText.trim()) requestData.cookie_text = cookieText;
+        if (privacyText.trim()) requestData.privacy_text = privacyText;
+
+    } else if (inputMode === 'url') {
+        const termsUrl = document.getElementById('termsUrl').value;
+        const cookieUrl = document.getElementById('cookieUrlAdd').value;
+        const privacyUrl = document.getElementById('privacyUrlAdd').value;
+
+        if (!termsUrl.trim()) {
+            alert('Please enter at least the terms and conditions URL.');
+            return;
+        }
+
+        requestData.terms_url = termsUrl;
+        if (cookieUrl.trim()) requestData.cookie_url = cookieUrl;
+        if (privacyUrl.trim()) requestData.privacy_url = privacyUrl;
+
+    } else if (inputMode === 'auto') {
+        requestData.auto_fetch = true;
     }
 
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    
+    let statusText = 'Analyzing...';
+    if (inputMode === 'url') statusText = 'Fetching & Analyzing...';
+    if (inputMode === 'auto') statusText = 'Auto-Fetching & Analyzing...';
+    submitBtn.textContent = statusText;
+
     try {
-        const response = await fetch(`${API_URL}/api/companies`, {
+        // For auto mode, use the new enhanced endpoint
+        const endpoint = inputMode === 'auto' ? '/api/companies/auto-create' : '/api/companies';
+        
+        const response = await fetch(`${API_URL}${endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(requestData)
         });
 
         const responseData = await response.json();
@@ -247,7 +598,10 @@ async function handleAddCompany(e) {
 
         addModal.style.display = 'none';
         document.getElementById('addCompanyForm').reset();
-        document.getElementById('termsUrl').value = '';
+        // Reset all URL fields
+        ['termsUrl', 'cookieUrlAdd', 'privacyUrlAdd'].forEach(id => {
+            document.getElementById(id).value = '';
+        });
         setInputMode('paste'); // Reset to paste mode
         await loadCompanies();
 
@@ -317,6 +671,218 @@ async function deleteCompany() {
     } catch (error) {
         console.error('Error deleting company:', error);
         alert('Error deleting company. Please try again.');
+    }
+}
+
+// ==================== Cookie Policy Functions ====================
+
+async function handleUploadCookie(e) {
+    e.preventDefault();
+
+    if (!currentCompany) return;
+
+    const cookieText = document.getElementById('cookieText').value;
+    const cookieUrl = document.getElementById('cookieUrl').value;
+
+    // Validation
+    if (cookieInputMode === 'paste' && !cookieText.trim()) {
+        alert('Please paste the cookie policy text.');
+        return;
+    }
+    if (cookieInputMode === 'url' && !cookieUrl.trim()) {
+        alert('Please enter the URL for the cookie policy.');
+        return;
+    }
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = cookieInputMode === 'url' ? 'Fetching & Analyzing...' : 'Analyzing...';
+
+    const requestBody = {};
+    if (cookieInputMode === 'paste') {
+        requestBody.cookie_text = cookieText;
+    } else {
+        requestBody.cookie_url = cookieUrl;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/api/companies/${currentCompany.id}/cookie`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to upload cookie policy');
+        }
+
+        const updatedCompany = await response.json();
+
+        // Update local data
+        const index = companies.findIndex(c => c.id === currentCompany.id);
+        if (index !== -1) {
+            companies[index] = updatedCompany;
+        }
+
+        cookieModal.style.display = 'none';
+        document.getElementById('uploadCookieForm').reset();
+        setCookieInputMode('paste');
+
+        // Refresh the modal
+        showCompanyDetails(currentCompany.id);
+        switchDocumentTab('cookies');
+
+    } catch (error) {
+        console.error('Error uploading cookie policy:', error);
+        alert(error.message || 'Error uploading cookie policy. Please try again.');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Upload & Analyze';
+    }
+}
+
+async function analyzeCookiePolicy() {
+    if (!currentCompany) return;
+
+    const btn = document.getElementById('analyzeCookieBtn');
+    const risksList = document.getElementById('cookieRisksList');
+
+    btn.disabled = true;
+    btn.textContent = 'Analyzing...';
+    risksList.innerHTML = '<div class="analyzing"><div class="spinner"></div><span>AI is analyzing the cookie policy...</span></div>';
+
+    try {
+        const response = await fetch(`${API_URL}/api/companies/${currentCompany.id}/analyze-cookie`, {
+            method: 'POST'
+        });
+
+        if (!response.ok) throw new Error('Cookie policy analysis failed');
+
+        const updatedCompany = await response.json();
+
+        // Update local data
+        const index = companies.findIndex(c => c.id === currentCompany.id);
+        if (index !== -1) {
+            companies[index] = updatedCompany;
+        }
+
+        // Refresh the modal
+        showCompanyDetails(currentCompany.id);
+        switchDocumentTab('cookies');
+
+    } catch (error) {
+        console.error('Error analyzing cookie policy:', error);
+        risksList.innerHTML = '<p class="no-risks" style="color: #f44336;">Analysis failed. Please try again.</p>';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Analyze Cookie Policy';
+    }
+}
+
+// ==================== Privacy Policy Functions ====================
+
+async function handleUploadPrivacy(e) {
+    e.preventDefault();
+
+    if (!currentCompany) return;
+
+    const privacyText = document.getElementById('privacyText').value;
+    const privacyUrl = document.getElementById('privacyUrl').value;
+
+    // Validation
+    if (privacyInputMode === 'paste' && !privacyText.trim()) {
+        alert('Please paste the privacy policy text.');
+        return;
+    }
+    if (privacyInputMode === 'url' && !privacyUrl.trim()) {
+        alert('Please enter the URL for the privacy policy.');
+        return;
+    }
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = privacyInputMode === 'url' ? 'Fetching & Analyzing...' : 'Analyzing...';
+
+    const requestBody = {};
+    if (privacyInputMode === 'paste') {
+        requestBody.privacy_text = privacyText;
+    } else {
+        requestBody.privacy_url = privacyUrl;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/api/companies/${currentCompany.id}/privacy`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to upload privacy policy');
+        }
+
+        const updatedCompany = await response.json();
+
+        // Update local data
+        const index = companies.findIndex(c => c.id === currentCompany.id);
+        if (index !== -1) {
+            companies[index] = updatedCompany;
+        }
+
+        privacyModal.style.display = 'none';
+        document.getElementById('uploadPrivacyForm').reset();
+        setPrivacyInputMode('paste');
+
+        // Refresh the modal
+        showCompanyDetails(currentCompany.id);
+        switchDocumentTab('privacy');
+
+    } catch (error) {
+        console.error('Error uploading privacy policy:', error);
+        alert(error.message || 'Error uploading privacy policy. Please try again.');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Upload & Analyze';
+    }
+}
+
+async function analyzePrivacyPolicy() {
+    if (!currentCompany) return;
+
+    const btn = document.getElementById('analyzePrivacyBtn');
+    const risksList = document.getElementById('privacyRisksList');
+
+    btn.disabled = true;
+    btn.textContent = 'Analyzing...';
+    risksList.innerHTML = '<div class="analyzing"><div class="spinner"></div><span>AI is analyzing the privacy policy...</span></div>';
+
+    try {
+        const response = await fetch(`${API_URL}/api/companies/${currentCompany.id}/analyze-privacy`, {
+            method: 'POST'
+        });
+
+        if (!response.ok) throw new Error('Privacy policy analysis failed');
+
+        const updatedCompany = await response.json();
+
+        // Update local data
+        const index = companies.findIndex(c => c.id === currentCompany.id);
+        if (index !== -1) {
+            companies[index] = updatedCompany;
+        }
+
+        // Refresh the modal
+        showCompanyDetails(currentCompany.id);
+        switchDocumentTab('privacy');
+
+    } catch (error) {
+        console.error('Error analyzing privacy policy:', error);
+        risksList.innerHTML = '<p class="no-risks" style="color: #f44336;">Analysis failed. Please try again.</p>';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Analyze Privacy Policy';
     }
 }
 

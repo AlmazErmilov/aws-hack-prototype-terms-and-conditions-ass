@@ -317,7 +317,41 @@ class DynamoDBService:
 
 7. Location Tracking: We collect precise location data from your device.
 
-8. Cross-Platform Tracking: We track your activity across websites and apps that use our services.'''
+8. Cross-Platform Tracking: We track your activity across websites and apps that use our services.''',
+                'cookie_text': '''Facebook Cookie Policy Summary:
+
+1. Essential Cookies: Required for basic site functionality and security.
+
+2. Analytics Cookies: Track user behavior and site performance for improvements.
+
+3. Advertising Cookies: Used to deliver personalized ads and measure ad effectiveness.
+
+4. Third-Party Cookies: Allow integration with external services and social plugins.
+
+5. Cross-Site Tracking: Cookies track users across different websites and apps.
+
+6. Persistent Cookies: Some cookies remain on your device for extended periods.
+
+7. Cookie Sharing: Cookie data is shared with Meta family companies and partners.
+
+8. Limited Control: Users have limited ability to opt out while maintaining functionality.''',
+                'privacy_text': '''Facebook Privacy Policy Summary:
+
+1. Data Collection: Collects personal info, content, contacts, device data, and location.
+
+2. Data Usage: Uses data for personalization, advertising, security, and product development.
+
+3. Data Sharing: Shares with Meta companies, advertisers, researchers, and law enforcement.
+
+4. User Rights: Limited rights to access, delete, or port data with restrictions.
+
+5. Data Retention: Keeps data indefinitely unless specifically deleted by user.
+
+6. International Transfers: Data processed globally with varying privacy protections.
+
+7. Children's Data: Collects data from users 13+ with parental consent requirements.
+
+8. Policy Changes: Can modify privacy terms with minimal notice to users.'''
             },
             {
                 'name': 'TikTok',
@@ -339,7 +373,41 @@ class DynamoDBService:
 
 7. Clipboard Access: The app may access your device clipboard.
 
-8. Account Deletion: We may retain your data even after account deletion.'''
+8. Account Deletion: We may retain your data even after account deletion.''',
+                'cookie_text': '''TikTok Cookie Policy Summary:
+
+1. Functional Cookies: Enable core app features like login and preferences.
+
+2. Analytics Cookies: Track user engagement and content performance metrics.
+
+3. Advertising Cookies: Deliver targeted ads and measure campaign effectiveness.
+
+4. Third-Party Cookies: Allow integration with social media and advertising networks.
+
+5. Persistent Tracking: Cookies remain active across sessions and devices.
+
+6. Cross-Platform Data: Combines cookie data with app usage for comprehensive profiling.
+
+7. International Sharing: Cookie data shared globally including with ByteDance entities.
+
+8. Limited Opt-Out: Minimal cookie control options for users.''',
+                'privacy_text': '''TikTok Privacy Policy Summary:
+
+1. Extensive Data Collection: Gathers personal info, biometric data, device details, and behavioral patterns.
+
+2. Algorithmic Profiling: Creates detailed user profiles for content recommendation and advertising.
+
+3. Global Data Sharing: Shares data with ByteDance subsidiaries and international partners.
+
+4. Government Access: May provide data to government authorities upon request.
+
+5. Data Retention: Keeps user data for extended periods even after account deletion.
+
+6. Biometric Processing: Collects and processes facial recognition and voice data.
+
+7. Minimal User Control: Limited options for data deletion or access requests.
+
+8. Policy Flexibility: Reserves right to change privacy practices with minimal notice.'''
             },
             {
                 'name': 'Tinder',
@@ -427,7 +495,41 @@ class DynamoDBService:
 
 7. Learning Data: Your course progress and interests are tracked.
 
-8. Salary Insights: We collect and use salary information for insights.'''
+8. Salary Insights: We collect and use salary information for insights.''',
+                'cookie_text': '''LinkedIn Cookie Policy Summary:
+
+1. Essential Cookies: Required for login, security, and basic platform functionality.
+
+2. Performance Cookies: Monitor site performance and user interaction patterns.
+
+3. Advertising Cookies: Enable targeted professional ads and sponsored content.
+
+4. Social Media Cookies: Allow sharing and integration with other platforms.
+
+5. Microsoft Integration: Shares cookie data with Microsoft services and products.
+
+6. Professional Tracking: Tracks career-related activities and job search behavior.
+
+7. Cross-Device Linking: Connects activity across multiple devices and browsers.
+
+8. Partner Cookies: Third-party recruiters and advertisers can access cookie data.''',
+                'privacy_text': '''LinkedIn Privacy Policy Summary:
+
+1. Professional Data Processing: Collects comprehensive career and professional information.
+
+2. Microsoft Sharing: Extensive data sharing with Microsoft and its services.
+
+3. Recruiter Access: Professional data accessible to hiring managers and recruiters globally.
+
+4. Advertising Profiling: Creates detailed professional profiles for targeted advertising.
+
+5. Public Visibility: Profile information may appear in search engines and external sites.
+
+6. Data Retention: Keeps professional data indefinitely for network value.
+
+7. International Transfers: Processes data globally with varying privacy protections.
+
+8. Limited Deletion: Difficult to completely remove data due to network effects.'''
             }
         ]
 
@@ -439,8 +541,55 @@ class DynamoDBService:
                     name=company_data['name'],
                     category=company_data['category'],
                     terms_text=company_data['terms_text'],
-                    icon_url=company_data['icon_url']
+                    icon_url=company_data['icon_url'],
+                    cookie_text=company_data.get('cookie_text', ''),
+                    privacy_text=company_data.get('privacy_text', '')
                 )
+                
+                # Analyze the sample data with AI to generate risks and summaries
+                try:
+                    from .bedrock import BedrockService
+                    bedrock = BedrockService()
+                    
+                    # Analyze terms
+                    if company_data['terms_text']:
+                        analysis = bedrock.analyze_terms_and_conditions(
+                            company_name=company_data['name'],
+                            terms_text=company_data['terms_text']
+                        )
+                        self.update_company_analysis(
+                            company_id=company['id'],
+                            terms_risks=analysis.get('risks', []),
+                            terms_summary=analysis.get('summary', '')
+                        )
+                    
+                    # Analyze cookie policy
+                    if company_data.get('cookie_text'):
+                        analysis = bedrock.analyze_cookie_policy(
+                            company_name=company_data['name'],
+                            cookie_text=company_data['cookie_text']
+                        )
+                        self.update_company_cookie_analysis(
+                            company_id=company['id'],
+                            cookie_risks=analysis.get('cookie_risks', []),
+                            cookie_summary=analysis.get('cookie_summary', '')
+                        )
+                    
+                    # Analyze privacy policy
+                    if company_data.get('privacy_text'):
+                        analysis = bedrock.analyze_privacy_policy(
+                            company_name=company_data['name'],
+                            privacy_text=company_data['privacy_text']
+                        )
+                        self.update_company_privacy_analysis(
+                            company_id=company['id'],
+                            privacy_risks=analysis.get('privacy_risks', []),
+                            privacy_summary=analysis.get('privacy_summary', '')
+                        )
+                        
+                except Exception as e:
+                    print(f"Failed to analyze sample data for {company_data['name']}: {e}")
+                
                 created_companies.append(company)
 
         return created_companies

@@ -12,13 +12,140 @@ class ScraperService:
             'Accept-Language': 'en-US,en;q=0.5',
         }
         self.timeout = 15
+        
+        # Predefined URLs for popular platforms
+        self.known_urls = {
+            'linkedin': {
+                'terms': 'https://www.linkedin.com/legal/user-agreement',
+                'privacy': 'https://www.linkedin.com/legal/privacy-policy',
+                'cookie': 'https://www.linkedin.com/legal/cookie-policy'
+            },
+            'instagram': {
+                'terms': 'https://help.instagram.com/581066165581870',
+                'privacy': 'https://help.instagram.com/519522125107875',
+                'cookie': 'https://help.instagram.com/1896641480634370'
+            },
+            'tiktok': {
+                'terms': 'https://www.tiktok.com/legal/page/us/terms-of-service/en',
+                'privacy': 'https://www.tiktok.com/legal/page/us/privacy-policy/en',
+                'cookie': 'https://www.tiktok.com/legal/page/us/cookie-policy/en'
+            },
+            'tinder': {
+                'terms': 'https://policies.tinder.com/terms',
+                'privacy': 'https://policies.tinder.com/privacy',
+                'cookie': 'https://policies.tinder.com/cookie-policy'
+            },
+            'facebook': {
+                'terms': 'https://www.facebook.com/legal/terms',
+                'privacy': 'https://www.facebook.com/privacy/policy',
+                'cookie': 'https://www.facebook.com/policies/cookies'
+            },
+            'twitter': {
+                'terms': 'https://twitter.com/en/tos',
+                'privacy': 'https://twitter.com/en/privacy',
+                'cookie': 'https://twitter.com/en/privacy#update'
+            },
+            'x': {
+                'terms': 'https://x.com/en/tos',
+                'privacy': 'https://x.com/en/privacy',
+                'cookie': 'https://x.com/en/privacy#update'
+            },
+            'snapchat': {
+                'terms': 'https://www.snap.com/en-US/terms',
+                'privacy': 'https://www.snap.com/en-US/privacy/privacy-policy',
+                'cookie': 'https://www.snap.com/en-US/cookie-policy'
+            },
+            'whatsapp': {
+                'terms': 'https://www.whatsapp.com/legal/terms-of-service',
+                'privacy': 'https://www.whatsapp.com/legal/privacy-policy',
+                'cookie': 'https://www.whatsapp.com/legal/cookies'
+            },
+            'spotify': {
+                'terms': 'https://www.spotify.com/us/legal/end-user-agreement/',
+                'privacy': 'https://www.spotify.com/us/legal/privacy-policy/',
+                'cookie': 'https://www.spotify.com/us/legal/cookies-policy/'
+            },
+            'netflix': {
+                'terms': 'https://help.netflix.com/legal/termsofuse',
+                'privacy': 'https://help.netflix.com/legal/privacy',
+                'cookie': 'https://help.netflix.com/legal/privacy#cookies'
+            },
+            'amazon': {
+                'terms': 'https://www.amazon.com/gp/help/customer/display.html?nodeId=508088',
+                'privacy': 'https://www.amazon.com/gp/help/customer/display.html?nodeId=468496',
+                'cookie': 'https://www.amazon.com/gp/help/customer/display.html?nodeId=201890250'
+            },
+            'uber': {
+                'terms': 'https://www.uber.com/legal/en/document/?name=general-terms-of-use',
+                'privacy': 'https://www.uber.com/legal/en/document/?name=privacy-notice',
+                'cookie': 'https://www.uber.com/legal/en/document/?name=cookie-notice'
+            },
+            'airbnb': {
+                'terms': 'https://www.airbnb.com/help/article/2908',
+                'privacy': 'https://www.airbnb.com/help/article/2855',
+                'cookie': 'https://www.airbnb.com/help/article/2855'
+            },
+            'discord': {
+                'terms': 'https://discord.com/terms',
+                'privacy': 'https://discord.com/privacy',
+                'cookie': 'https://discord.com/privacy'
+            },
+            'reddit': {
+                'terms': 'https://www.redditinc.com/policies/user-agreement',
+                'privacy': 'https://www.reddit.com/policies/privacy-policy',
+                'cookie': 'https://www.reddit.com/policies/cookies'
+            },
+            'pinterest': {
+                'terms': 'https://policy.pinterest.com/en/terms-of-service',
+                'privacy': 'https://policy.pinterest.com/en/privacy-policy',
+                'cookie': 'https://policy.pinterest.com/en/cookies'
+            },
+            'zoom': {
+                'terms': 'https://explore.zoom.us/en/terms/',
+                'privacy': 'https://explore.zoom.us/en/privacy/',
+                'cookie': 'https://explore.zoom.us/en/cookie-policy/'
+            }
+        }
 
-    def fetch_terms_from_url(self, url: str) -> str:
+    def get_known_url(self, company_name: str, doc_type: str = 'terms') -> Optional[str]:
+        """
+        Get the known URL for a popular platform
+        
+        Args:
+            company_name: Name of the company (case-insensitive)
+            doc_type: Type of document ('terms', 'privacy', 'cookie')
+        
+        Returns:
+            URL if found, None otherwise
+        """
+        company_key = company_name.lower().strip()
+        
+        if company_key in self.known_urls:
+            return self.known_urls[company_key].get(doc_type)
+        
+        return None
+
+    def fetch_terms_from_url(self, url: str, company_name: Optional[str] = None) -> str:
         """
         Fetch and extract terms and conditions text from a URL
+        
+        Args:
+            url: URL to fetch from, or 'auto' to use known URL
+            company_name: Company name (required if url is 'auto')
+        
+        Returns:
+            Extracted text content
         """
+        # Handle auto-fetch for known platforms
+        if url.lower() == 'auto' and company_name:
+            known_url = self.get_known_url(company_name, 'terms')
+            if known_url:
+                url = known_url
+            else:
+                raise ValueError(f"No known terms URL for '{company_name}'. Please provide a URL manually.")
+        
         try:
-            response = requests.get(url, headers=self.headers, timeout=self.timeout)
+            response = requests.get(url, headers=self.headers, timeout=self.timeout, allow_redirects=True)
             response.raise_for_status()
 
             soup = BeautifulSoup(response.content, 'lxml')

@@ -60,18 +60,132 @@ async def get_company(company_id: str):
     return company
 
 
+@app.post("/api/companies/auto-create", response_model=CompanyResponse)
+async def auto_create_company(request: dict):
+    """Auto-create a company by fetching all available policies from known URLs"""
+    company_name = request.get('company_name')
+    category = request.get('category')
+    
+    if not company_name or not category:
+        raise HTTPException(status_code=400, detail="Company name and category are required")
+    
+    # Check if company already exists
+    existing = [c for c in db_service.get_all_companies() if c.get('name').lower() == company_name.lower()]
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Company '{company_name}' already exists")
+    
+    # Fetch all available policies
+    terms_text = ""
+    cookie_text = ""
+    privacy_text = ""
+    
+    try:
+        terms_url = scraper_service.get_known_url(company_name.lower(), 'terms')
+        if terms_url:
+            terms_text = scraper_service.fetch_terms_from_url(terms_url)
+    except Exception as e:
+        print(f"Failed to fetch terms for {company_name}: {e}")
+        
+    try:
+        cookie_url = scraper_service.get_known_url(company_name.lower(), 'cookie')
+        if cookie_url:
+            cookie_text = scraper_service.fetch_terms_from_url(cookie_url)
+    except Exception as e:
+        print(f"Failed to fetch cookie policy for {company_name}: {e}")
+        
+    try:
+        privacy_url = scraper_service.get_known_url(company_name.lower(), 'privacy')
+        if privacy_url:
+            privacy_text = scraper_service.fetch_terms_from_url(privacy_url)
+    except Exception as e:
+        print(f"Failed to fetch privacy policy for {company_name}: {e}")
+    
+    if not terms_text and not cookie_text and not privacy_text:
+        raise HTTPException(status_code=400, detail=f"No known URLs found for '{company_name}' or failed to fetch any policies")
+    
+    # Create company
+    company = db_service.create_company(
+        name=company_name,
+        category=category,
+        terms_text=terms_text,
+        cookie_text=cookie_text,
+        privacy_text=privacy_text
+    )
+    
+    # Analyze each document type
+    if terms_text:
+        try:
+            analysis = bedrock_service.analyze_terms_and_conditions(company_name, terms_text)
+            db_service.update_company_analysis(
+                company_id=company['id'],
+                terms_risks=analysis.get('risks', []),
+                terms_summary=analysis.get('summary', '')
+            )
+            # Index in vector database
+            vector_service.index_company_terms(
+                company_id=company['id'],
+                company_name=company_name,
+                terms_text=terms_text
+            )
+        except Exception as e:
+            print(f"Failed to analyze terms for {company_name}: {e}")
+    
+    if cookie_text:
+        try:
+            analysis = bedrock_service.analyze_cookie_policy(company_name, cookie_text)
+            db_service.update_company_cookie_analysis(
+                company_id=company['id'],
+                cookie_risks=analysis.get('cookie_risks', []),
+                cookie_summary=analysis.get('cookie_summary', '')
+            )
+        except Exception as e:
+            print(f"Failed to analyze cookie policy for {company_name}: {e}")
+    
+    if privacy_text:
+        try:
+            analysis = bedrock_service.analyze_privacy_policy(company_name, privacy_text)
+            db_service.update_company_privacy_analysis(
+                company_id=company['id'],
+                privacy_risks=analysis.get('privacy_risks', []),
+                privacy_summary=analysis.get('privacy_summary', '')
+            )
+        except Exception as e:
+            print(f"Failed to analyze privacy policy for {company_name}: {e}")
+    
+    return db_service.get_company(company['id'])
+
+
 @app.post("/api/companies", response_model=CompanyResponse)
 async def create_company(request: UploadTermsRequest):
-    """Create a new company and analyze its terms"""
-    # Get terms text - either from direct input or by scraping URL
+    """Create a new company and analyze its documents"""
+    
+    # Get document texts - either from direct input or by scraping URLs
     terms_text = request.terms_text
+    cookie_text = request.cookie_text
+    privacy_text = request.privacy_text
 
+    # Fetch terms
     if request.terms_url and not terms_text:
         try:
             terms_text = scraper_service.fetch_terms_from_url(request.terms_url)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=f"Terms URL error: {str(e)}")
 
+    # Fetch cookie policy
+    if request.cookie_url and not cookie_text:
+        try:
+            cookie_text = scraper_service.fetch_terms_from_url(request.cookie_url)
+        except ValueError as e:
+            print(f"Cookie URL error: {e}")  # Don't fail for optional documents
+
+    # Fetch privacy policy
+    if request.privacy_url and not privacy_text:
+        try:
+            privacy_text = scraper_service.fetch_terms_from_url(request.privacy_url)
+        except ValueError as e:
+            print(f"Privacy URL error: {e}")  # Don't fail for optional documents
+
+    # At least terms are required
     if not terms_text:
         raise HTTPException(status_code=400, detail="Either terms_text or terms_url is required")
 
@@ -79,40 +193,66 @@ async def create_company(request: UploadTermsRequest):
     company = db_service.create_company(
         name=request.company_name,
         category=request.category,
-        terms_text=terms_text
+        terms_text=terms_text,
+        cookie_text=cookie_text or '',
+        privacy_text=privacy_text or ''
     )
 
     # Analyze terms using Bedrock
-    try:
-        analysis = bedrock_service.analyze_terms_and_conditions(
-            company_name=request.company_name,
-            terms_text=terms_text
-        )
-
-        # Update company with analysis
-        db_service.update_company_analysis(
-            company_id=company['id'],
-            terms_risks=analysis.get('risks', []),
-            terms_summary=analysis.get('summary', '')
-        )
-
-        # Index terms in vector database for RAG
+    if terms_text:
         try:
-            vector_service.index_company_terms(
-                company_id=company['id'],
+            analysis = bedrock_service.analyze_terms_and_conditions(
                 company_name=request.company_name,
                 terms_text=terms_text
             )
-        except Exception as ve:
-            print(f"Vector indexing failed: {ve}")
+            db_service.update_company_analysis(
+                company_id=company['id'],
+                terms_risks=analysis.get('risks', []),
+                terms_summary=analysis.get('summary', '')
+            )
+            # Index terms in vector database for RAG
+            try:
+                vector_service.index_company_terms(
+                    company_id=company['id'],
+                    company_name=request.company_name,
+                    terms_text=terms_text
+                )
+            except Exception as ve:
+                print(f"Vector indexing failed: {ve}")
+        except Exception as e:
+            print(f"Terms analysis failed: {e}")
 
-        # Return updated company
-        return db_service.get_company(company['id'])
+    # Analyze cookie policy
+    if cookie_text:
+        try:
+            analysis = bedrock_service.analyze_cookie_policy(
+                company_name=request.company_name,
+                cookie_text=cookie_text
+            )
+            db_service.update_company_cookie_analysis(
+                company_id=company['id'],
+                cookie_risks=analysis.get('cookie_risks', []),
+                cookie_summary=analysis.get('cookie_summary', '')
+            )
+        except Exception as e:
+            print(f"Cookie analysis failed: {e}")
 
-    except Exception as e:
-        # Return company without analysis if Bedrock fails
-        print(f"Bedrock analysis failed: {e}")
-        return company
+    # Analyze privacy policy
+    if privacy_text:
+        try:
+            analysis = bedrock_service.analyze_privacy_policy(
+                company_name=request.company_name,
+                privacy_text=privacy_text
+            )
+            db_service.update_company_privacy_analysis(
+                company_id=company['id'],
+                privacy_risks=analysis.get('privacy_risks', []),
+                privacy_summary=analysis.get('privacy_summary', '')
+            )
+        except Exception as e:
+            print(f"Privacy analysis failed: {e}")
+
+    return db_service.get_company(company['id'])
 
 
 @app.post("/api/companies/{company_id}/analyze")
@@ -316,6 +456,119 @@ async def seed_database():
     return {"status": "seeded", "companies_created": len(created)}
 
 
+@app.post("/api/seed-with-real-data")
+async def seed_with_real_data():
+    """Seed database with real data fetched from company websites"""
+    companies_to_fetch = [
+        {"name": "Facebook", "category": "social", "icon_url": "https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg"},
+        {"name": "LinkedIn", "category": "professional", "icon_url": "https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png"},
+        {"name": "TikTok", "category": "social", "icon_url": "https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg"},
+        {"name": "Instagram", "category": "social", "icon_url": "https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png"},
+    ]
+    
+    created_companies = []
+    errors = []
+    
+    for company_info in companies_to_fetch:
+        try:
+            # Check if company already exists
+            existing = [c for c in db_service.get_all_companies() if c.get('name') == company_info['name']]
+            if existing:
+                continue
+                
+            # Fetch terms, cookie, and privacy policies
+            terms_text = ""
+            cookie_text = ""
+            privacy_text = ""
+            
+            try:
+                terms_url = scraper_service.get_known_url(company_info['name'].lower(), 'terms')
+                if terms_url:
+                    terms_text = scraper_service.fetch_terms_from_url(terms_url)
+            except Exception as e:
+                print(f"Failed to fetch terms for {company_info['name']}: {e}")
+                
+            try:
+                cookie_url = scraper_service.get_known_url(company_info['name'].lower(), 'cookie')
+                if cookie_url:
+                    cookie_text = scraper_service.fetch_terms_from_url(cookie_url)
+            except Exception as e:
+                print(f"Failed to fetch cookie policy for {company_info['name']}: {e}")
+                
+            try:
+                privacy_url = scraper_service.get_known_url(company_info['name'].lower(), 'privacy')
+                if privacy_url:
+                    privacy_text = scraper_service.fetch_terms_from_url(privacy_url)
+            except Exception as e:
+                print(f"Failed to fetch privacy policy for {company_info['name']}: {e}")
+            
+            # Create company with fetched data
+            company = db_service.create_company(
+                name=company_info['name'],
+                category=company_info['category'],
+                terms_text=terms_text,
+                icon_url=company_info['icon_url'],
+                cookie_text=cookie_text,
+                privacy_text=privacy_text
+            )
+            
+            # Analyze each document type if text was fetched
+            if terms_text:
+                try:
+                    analysis = bedrock_service.analyze_terms_and_conditions(company_info['name'], terms_text)
+                    db_service.update_company_analysis(
+                        company_id=company['id'],
+                        terms_risks=analysis.get('risks', []),
+                        terms_summary=analysis.get('summary', '')
+                    )
+                except Exception as e:
+                    print(f"Failed to analyze terms for {company_info['name']}: {e}")
+            
+            if cookie_text:
+                try:
+                    analysis = bedrock_service.analyze_cookie_policy(company_info['name'], cookie_text)
+                    db_service.update_company_cookie_analysis(
+                        company_id=company['id'],
+                        cookie_risks=analysis.get('cookie_risks', []),
+                        cookie_summary=analysis.get('cookie_summary', '')
+                    )
+                except Exception as e:
+                    print(f"Failed to analyze cookie policy for {company_info['name']}: {e}")
+            
+            if privacy_text:
+                try:
+                    analysis = bedrock_service.analyze_privacy_policy(company_info['name'], privacy_text)
+                    db_service.update_company_privacy_analysis(
+                        company_id=company['id'],
+                        privacy_risks=analysis.get('privacy_risks', []),
+                        privacy_summary=analysis.get('privacy_summary', '')
+                    )
+                except Exception as e:
+                    print(f"Failed to analyze privacy policy for {company_info['name']}: {e}")
+            
+            # Index in vector database
+            if terms_text:
+                try:
+                    vector_service.index_company_terms(
+                        company_id=company['id'],
+                        company_name=company_info['name'],
+                        terms_text=terms_text
+                    )
+                except Exception as e:
+                    print(f"Failed to index terms for {company_info['name']}: {e}")
+            
+            created_companies.append(company)
+            
+        except Exception as e:
+            errors.append(f"{company_info['name']}: {str(e)}")
+    
+    return {
+        "status": "completed",
+        "companies_created": len(created_companies),
+        "errors": errors
+    }
+
+
 @app.post("/api/migrate-schema")
 async def migrate_schema():
     """
@@ -466,6 +719,74 @@ async def get_vector_stats():
     """Get vector database statistics"""
     stats = vector_service.get_stats()
     return stats
+
+
+@app.post("/api/analyze-all")
+async def analyze_all_companies():
+    """Analyze all companies that don't have analysis yet"""
+    companies = db_service.get_all_companies()
+    analyzed = 0
+    errors = []
+    
+    for company in companies:
+        try:
+            # Analyze terms if missing
+            if company.get('terms_text') and not company.get('terms_risks'):
+                try:
+                    analysis = bedrock_service.analyze_terms_and_conditions(
+                        company_name=company['name'],
+                        terms_text=company['terms_text']
+                    )
+                    db_service.update_company_analysis(
+                        company_id=company['id'],
+                        terms_risks=analysis.get('risks', []),
+                        terms_summary=analysis.get('summary', '')
+                    )
+                    analyzed += 1
+                except Exception as e:
+                    errors.append(f"{company['name']} terms: {str(e)}")
+            
+            # Analyze cookie policy if missing
+            if company.get('cookie_text') and not company.get('cookie_risks'):
+                try:
+                    analysis = bedrock_service.analyze_cookie_policy(
+                        company_name=company['name'],
+                        cookie_text=company['cookie_text']
+                    )
+                    db_service.update_company_cookie_analysis(
+                        company_id=company['id'],
+                        cookie_risks=analysis.get('cookie_risks', []),
+                        cookie_summary=analysis.get('cookie_summary', '')
+                    )
+                    analyzed += 1
+                except Exception as e:
+                    errors.append(f"{company['name']} cookie: {str(e)}")
+            
+            # Analyze privacy policy if missing
+            if company.get('privacy_text') and not company.get('privacy_risks'):
+                try:
+                    analysis = bedrock_service.analyze_privacy_policy(
+                        company_name=company['name'],
+                        privacy_text=company['privacy_text']
+                    )
+                    db_service.update_company_privacy_analysis(
+                        company_id=company['id'],
+                        privacy_risks=analysis.get('privacy_risks', []),
+                        privacy_summary=analysis.get('privacy_summary', '')
+                    )
+                    analyzed += 1
+                except Exception as e:
+                    errors.append(f"{company['name']} privacy: {str(e)}")
+                    
+        except Exception as e:
+            errors.append(f"{company['name']}: {str(e)}")
+    
+    return {
+        "status": "completed",
+        "companies_analyzed": analyzed,
+        "total_companies": len(companies),
+        "errors": errors
+    }
 
 
 if __name__ == "__main__":

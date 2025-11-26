@@ -16,6 +16,17 @@
         <div class="controls">
             <button id="addCompanyBtn" class="btn btn-primary">+ Add Company</button>
             <button id="seedBtn" class="btn btn-secondary">Load Sample Data</button>
+            <button id="seedRealBtn" class="btn btn-secondary">Load Real Data</button>
+            <button id="analyzeAllBtn" class="btn btn-secondary">Analyze All</button>
+        </div>
+
+        <!-- Popular Sites Quick Add -->
+        <div class="popular-sites">
+            <h3>Quick Add Popular Sites</h3>
+            <p class="subtitle-small">Click any site to automatically scrape and analyze their terms</p>
+            <div class="popular-sites-grid" id="popularSitesGrid">
+                <!-- Popular sites will be loaded here -->
+            </div>
         </div>
 
         <div id="companiesGrid" class="companies-grid">
@@ -42,26 +53,128 @@
                 <span id="modalCategory" class="category-badge"></span>
             </div>
             <div class="modal-body">
-                <div class="summary-section">
-                    <h3>Summary</h3>
-                    <p id="modalSummary"></p>
-                </div>
-                <div class="risks-section">
-                    <h3>Privacy Risks</h3>
-                    <div id="risksList"></div>
-                </div>
-                <div class="terms-section">
-                    <button class="terms-toggle" id="toggleTermsBtn">
-                        <span>View Original Terms & Conditions</span>
-                        <span class="toggle-icon">+</span>
+                <!-- Document Type Tabs -->
+                <div class="document-tabs">
+                    <button class="tab-btn active" data-tab="terms" onclick="switchDocumentTab('terms')">
+                        Terms & Conditions
+                        <span class="tab-badge" id="termsRiskCount"></span>
                     </button>
-                    <div class="terms-content" id="termsContent" style="display: none;">
-                        <pre id="originalTerms"></pre>
+                    <button class="tab-btn" data-tab="cookies" onclick="switchDocumentTab('cookies')">
+                        Cookies
+                        <span class="tab-badge" id="cookiesRiskCount"></span>
+                    </button>
+                    <button class="tab-btn" data-tab="privacy" onclick="switchDocumentTab('privacy')">
+                        Privacy
+                        <span class="tab-badge" id="privacyRiskCount"></span>
+                    </button>
+                    <button class="tab-btn" data-tab="all" onclick="switchDocumentTab('all')">
+                        All Combined
+                        <span class="tab-badge" id="allRiskCount"></span>
+                    </button>
+                </div>
+
+                <!-- Terms & Conditions Tab -->
+                <div class="tab-content active" id="termsTab">
+                    <div class="summary-section">
+                        <h3>Summary</h3>
+                        <p id="modalSummary"></p>
+                    </div>
+                    <div class="risks-section">
+                        <h3>Privacy Risks</h3>
+                        <div id="risksList"></div>
+                    </div>
+                    <div class="terms-section">
+                        <button class="terms-toggle" id="toggleTermsBtn">
+                            <span>View Original Terms & Conditions</span>
+                            <span class="toggle-icon">+</span>
+                        </button>
+                        <div class="terms-content" id="termsContent" style="display: none;">
+                            <pre id="originalTerms"></pre>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button id="analyzeBtn" class="btn btn-primary">Analyze Terms with AI</button>
                     </div>
                 </div>
-                <div class="actions">
-                    <button id="analyzeBtn" class="btn btn-primary">Analyze with AI</button>
-                    <button id="deleteBtn" class="btn btn-danger">Delete</button>
+
+                <!-- Cookie Policy Tab -->
+                <div class="tab-content" id="cookiesTab">
+                    <div class="summary-section">
+                        <h3>Summary</h3>
+                        <p id="modalCookieSummary"></p>
+                    </div>
+                    <div class="risks-section">
+                        <h3>Cookie & Tracking Risks</h3>
+                        <div id="cookieRisksList"></div>
+                    </div>
+                    <div class="terms-section">
+                        <button class="terms-toggle" id="toggleCookieBtn">
+                            <span>View Original Cookie Policy</span>
+                            <span class="toggle-icon">+</span>
+                        </button>
+                        <div class="terms-content" id="cookieContent" style="display: none;">
+                            <pre id="originalCookie"></pre>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button id="uploadCookieBtn" class="btn btn-secondary">Upload Cookie Policy</button>
+                        <button id="analyzeCookieBtn" class="btn btn-primary" style="display: none;">Analyze Cookie Policy</button>
+                    </div>
+                </div>
+
+                <!-- Privacy Policy Tab -->
+                <div class="tab-content" id="privacyTab">
+                    <div class="summary-section">
+                        <h3>Summary</h3>
+                        <p id="modalPrivacySummary"></p>
+                    </div>
+                    <div class="risks-section">
+                        <h3>Privacy Risks</h3>
+                        <div id="privacyRisksList"></div>
+                    </div>
+                    <div class="terms-section">
+                        <button class="terms-toggle" id="togglePrivacyBtn">
+                            <span>View Original Privacy Policy</span>
+                            <span class="toggle-icon">+</span>
+                        </button>
+                        <div class="terms-content" id="privacyContent" style="display: none;">
+                            <pre id="originalPrivacy"></pre>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button id="uploadPrivacyBtn" class="btn btn-secondary">Upload Privacy Policy</button>
+                        <button id="analyzePrivacyBtn" class="btn btn-primary" style="display: none;">Analyze Privacy Policy</button>
+                    </div>
+                </div>
+
+                <!-- All Combined Tab -->
+                <div class="tab-content" id="allTab">
+                    <div class="summary-section">
+                        <h3>Combined Overview</h3>
+                        <div class="combined-summaries">
+                            <div class="summary-card">
+                                <h4>📄 Terms & Conditions</h4>
+                                <p id="allTermsSummary"></p>
+                            </div>
+                            <div class="summary-card">
+                                <h4>🍪 Cookies</h4>
+                                <p id="allCookieSummary"></p>
+                            </div>
+                            <div class="summary-card">
+                                <h4>🔒 Privacy</h4>
+                                <p id="allPrivacySummary"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="risks-section">
+                        <h3>All Privacy Risks</h3>
+                        <div id="allRisksList"></div>
+                    </div>
+                </div>
+
+                <!-- Common Actions -->
+                <div class="modal-footer">
+                    <button id="deleteBtn" class="btn btn-danger">Delete Company</button>
                 </div>
             </div>
         </div>
@@ -92,24 +205,122 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>How do you want to provide the terms?</label>
+                    <label>How do you want to provide the documents?</label>
                     <div class="input-toggle">
                         <button type="button" class="toggle-btn active" id="togglePaste" onclick="setInputMode('paste')">Paste Text</button>
-                        <button type="button" class="toggle-btn" id="toggleUrl" onclick="setInputMode('url')">Enter URL</button>
+                        <button type="button" class="toggle-btn" id="toggleUrl" onclick="setInputMode('url')">Enter URLs</button>
+                        <button type="button" class="toggle-btn" id="toggleAuto" onclick="setInputMode('auto')">Auto-Fetch</button>
                     </div>
                 </div>
+                
+                <!-- Paste Mode -->
                 <div class="form-group" id="pasteGroup">
-                    <label for="termsText">Terms & Conditions Text</label>
-                    <textarea id="termsText" rows="10" placeholder="Paste the terms and conditions here..."></textarea>
+                    <div class="document-sections">
+                        <div class="document-section">
+                            <label for="termsText">Terms & Conditions Text</label>
+                            <textarea id="termsText" rows="6" placeholder="Paste the terms and conditions here..."></textarea>
+                        </div>
+                        <div class="document-section">
+                            <label for="cookieTextAdd">Cookie Policy Text (Optional)</label>
+                            <textarea id="cookieTextAdd" rows="6" placeholder="Paste the cookie policy here..."></textarea>
+                        </div>
+                        <div class="document-section">
+                            <label for="privacyTextAdd">Privacy Policy Text (Optional)</label>
+                            <textarea id="privacyTextAdd" rows="6" placeholder="Paste the privacy policy here..."></textarea>
+                        </div>
+                    </div>
                 </div>
+                
+                <!-- URL Mode -->
                 <div class="form-group" id="urlGroup" style="display: none;">
-                    <label for="termsUrl">Terms & Conditions URL</label>
-                    <input type="url" id="termsUrl" placeholder="https://example.com/terms">
-                    <small class="hint">Enter the URL where the terms and conditions are published</small>
+                    <div class="document-sections">
+                        <div class="document-section">
+                            <label for="termsUrl">Terms & Conditions URL</label>
+                            <input type="url" id="termsUrl" placeholder="https://example.com/terms">
+                        </div>
+                        <div class="document-section">
+                            <label for="cookieUrlAdd">Cookie Policy URL (Optional)</label>
+                            <input type="url" id="cookieUrlAdd" placeholder="https://example.com/cookies">
+                        </div>
+                        <div class="document-section">
+                            <label for="privacyUrlAdd">Privacy Policy URL (Optional)</label>
+                            <input type="url" id="privacyUrlAdd" placeholder="https://example.com/privacy">
+                        </div>
+                    </div>
+                    <small class="hint">Enter the URLs where the policies are published</small>
+                </div>
+                
+                <!-- Auto-Fetch Mode -->
+                <div class="form-group" id="autoGroup" style="display: none;">
+                    <div class="auto-fetch-info">
+                        <p>🚀 <strong>Auto-Fetch Mode</strong></p>
+                        <p>We'll automatically fetch Terms, Cookie Policy, and Privacy Policy from the company's website if available in our database.</p>
+                        <p><strong>Supported companies:</strong> Facebook, Instagram, LinkedIn, TikTok, Twitter/X, Tinder, Snapchat, WhatsApp, Spotify, Netflix, Amazon, Uber, Airbnb, Discord, Reddit, Pinterest, Zoom</p>
+                    </div>
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Add & Analyze</button>
                     <button type="button" class="btn btn-secondary" id="cancelAddBtn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Upload Cookie Policy Modal -->
+    <div id="cookieModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Upload Cookie Policy</h2>
+            <form id="uploadCookieForm">
+                <div class="form-group">
+                    <label>How do you want to provide the cookie policy?</label>
+                    <div class="input-toggle">
+                        <button type="button" class="toggle-btn active" id="toggleCookiePaste" onclick="setCookieInputMode('paste')">Paste Text</button>
+                        <button type="button" class="toggle-btn" id="toggleCookieUrl" onclick="setCookieInputMode('url')">Enter URL</button>
+                    </div>
+                </div>
+                <div class="form-group" id="cookiePasteGroup">
+                    <label for="cookieText">Cookie Policy Text</label>
+                    <textarea id="cookieText" rows="10" placeholder="Paste the cookie policy here..."></textarea>
+                </div>
+                <div class="form-group" id="cookieUrlGroup" style="display: none;">
+                    <label for="cookieUrl">Cookie Policy URL</label>
+                    <input type="url" id="cookieUrl" placeholder="https://example.com/cookies">
+                    <small class="hint">Enter the URL where the cookie policy is published</small>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Upload & Analyze</button>
+                    <button type="button" class="btn btn-secondary" id="cancelCookieBtn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Upload Privacy Policy Modal -->
+    <div id="privacyModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Upload Privacy Policy</h2>
+            <form id="uploadPrivacyForm">
+                <div class="form-group">
+                    <label>How do you want to provide the privacy policy?</label>
+                    <div class="input-toggle">
+                        <button type="button" class="toggle-btn active" id="togglePrivacyPaste" onclick="setPrivacyInputMode('paste')">Paste Text</button>
+                        <button type="button" class="toggle-btn" id="togglePrivacyUrl" onclick="setPrivacyInputMode('url')">Enter URL</button>
+                    </div>
+                </div>
+                <div class="form-group" id="privacyPasteGroup">
+                    <label for="privacyText">Privacy Policy Text</label>
+                    <textarea id="privacyText" rows="10" placeholder="Paste the privacy policy here..."></textarea>
+                </div>
+                <div class="form-group" id="privacyUrlGroup" style="display: none;">
+                    <label for="privacyUrl">Privacy Policy URL</label>
+                    <input type="url" id="privacyUrl" placeholder="https://example.com/privacy">
+                    <small class="hint">Enter the URL where the privacy policy is published</small>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Upload & Analyze</button>
+                    <button type="button" class="btn btn-secondary" id="cancelPrivacyBtn">Cancel</button>
                 </div>
             </form>
         </div>

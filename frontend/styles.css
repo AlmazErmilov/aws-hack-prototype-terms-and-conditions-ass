@@ -904,3 +904,180 @@ header h1 {
         padding: 10px 16px;
     }
 }
+
+/* Enhanced Add Company Form Styles */
+.document-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.document-section {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.document-section label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.document-section textarea,
+.document-section input[type="url"] {
+    width: 100%;
+    min-height: 100px;
+    padding: 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.document-section input[type="url"] {
+    min-height: auto;
+    height: 40px;
+}
+
+.auto-fetch-info {
+    background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+    padding: 20px;
+    border-radius: 12px;
+    border: 2px solid #2196f3;
+}
+
+.auto-fetch-info p {
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+
+.auto-fetch-info p:last-child {
+    margin-bottom: 0;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.input-toggle {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+}
+
+.toggle-btn {
+    flex: 1;
+    padding: 10px 15px;
+    border: 2px solid #e9ecef;
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+}
+
+.toggle-btn:hover {
+    border-color: #2196f3;
+    background: #f8f9fa;
+}
+
+.toggle-btn.active {
+    background: #2196f3;
+    color: white;
+    border-color: #2196f3;
+}
+
+/* Tab System Styles */
+.document-tabs {
+    display: flex;
+    border-bottom: 2px solid #e9ecef;
+    margin-bottom: 20px;
+    gap: 5px;
+}
+
+.tab-btn {
+    padding: 12px 20px;
+    border: none;
+    background: #f8f9fa;
+    color: #495057;
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tab-btn:hover {
+    background: #e9ecef;
+    color: #2196f3;
+}
+
+.tab-btn.active {
+    background: #2196f3;
+    color: white;
+    border-bottom: 2px solid #2196f3;
+}
+
+.tab-badge {
+    background: rgba(255, 255, 255, 0.2);
+    color: inherit;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    min-width: 20px;
+    text-align: center;
+}
+
+.tab-btn.active .tab-badge {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+.tab-btn:not(.active) .tab-badge {
+    background: #dee2e6;
+    color: #6c757d;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@media (max-width: 768px) {
+    .document-sections {
+        gap: 15px;
+    }
+    
+    .document-section {
+        padding: 12px;
+    }
+    
+    .input-toggle {
+        flex-direction: column;
+    }
+    
+    .toggle-btn {
+        flex: none;
+    }
+    
+    .document-tabs {
+        flex-wrap: wrap;
+        gap: 2px;
+    }
+    
+    .tab-btn {
+        padding: 10px 15px;
+        font-size: 0.8rem;
+        flex: 1;
+        min-width: 120px;
+    }
+}
