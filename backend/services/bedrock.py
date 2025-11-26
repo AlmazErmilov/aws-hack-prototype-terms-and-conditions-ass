@@ -16,11 +16,12 @@ class BedrockService:
             aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
             aws_session_token=os.getenv('AWS_SESSION_TOKEN')
         )
-        self.model_id = "anthropic.claude-3-haiku-20240307-v1:0"
+        # Use cross-region inference profile for Claude Sonnet 4
+        self.model_id = "us.anthropic.claude-sonnet-4-20250514-v1:0"
 
     def analyze_terms_and_conditions(self, company_name: str, terms_text: str) -> Dict[str, Any]:
         """
-        Analyze terms and conditions using Claude on Bedrock
+        Analyze terms and conditions using Claude Sonnet 4 on Bedrock
         Returns a summary and list of risks
         """
         prompt = f"""You are an expert privacy analyst. Analyze the following Terms and Conditions for {company_name}.
@@ -48,18 +49,17 @@ Focus on:
 8. Financial implications
 
 Terms and Conditions:
-{terms_text[:15000]}
+{terms_text[:8000]}
 
 Respond ONLY with valid JSON, no additional text."""
 
         body = json.dumps({
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 4096,
+            "temperature": 0.3,
+            "top_p": 0.9,
             "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt}
             ]
         })
 
@@ -83,6 +83,12 @@ Respond ONLY with valid JSON, no additional text."""
                 result_text = result_text[3:]
             if result_text.endswith("```"):
                 result_text = result_text[:-3]
+
+            # Find JSON in response
+            start_idx = result_text.find('{')
+            end_idx = result_text.rfind('}') + 1
+            if start_idx != -1 and end_idx > start_idx:
+                result_text = result_text[start_idx:end_idx]
 
             analysis = json.loads(result_text.strip())
             return analysis
@@ -108,7 +114,7 @@ Respond ONLY with valid JSON, no additional text."""
 Company: {company_name}
 
 Terms and Conditions excerpt:
-{terms_text[:10000]}
+{terms_text[:6000]}
 
 User question: {user_question}
 
@@ -117,11 +123,10 @@ Provide a clear, concise answer. If the terms don't address this question, say s
         body = json.dumps({
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 1024,
+            "temperature": 0.5,
+            "top_p": 0.9,
             "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt}
             ]
         })
 
