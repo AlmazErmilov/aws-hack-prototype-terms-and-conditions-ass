@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms & Conditions Risk Analyzer</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Terms & Conditions Risk Analyzer</h1>
+            <p class="subtitle">Click on any company to see what you're really agreeing to</p>
+        </header>
+
+        <div class="controls">
+            <button id="addCompanyBtn" class="btn btn-primary">+ Add Company</button>
+            <button id="seedBtn" class="btn btn-secondary">Load Sample Data</button>
+        </div>
+
+        <div id="companiesGrid" class="companies-grid">
+            <!-- Companies will be loaded here -->
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Loading companies...</p>
+        </div>
+
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <p>No companies found. Click "Load Sample Data" to get started!</p>
+        </div>
+    </div>
+
+    <!-- Company Details Modal -->
+    <div id="companyModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modal-header">
+                <div class="company-icon-large" id="modalIcon"></div>
+                <h2 id="modalCompanyName"></h2>
+                <span id="modalCategory" class="category-badge"></span>
+            </div>
+            <div class="modal-body">
+                <div class="summary-section">
+                    <h3>Summary</h3>
+                    <p id="modalSummary"></p>
+                </div>
+                <div class="risks-section">
+                    <h3>Privacy Risks</h3>
+                    <div id="risksList"></div>
+                </div>
+                <div class="actions">
+                    <button id="analyzeBtn" class="btn btn-primary">Analyze with AI</button>
+                    <button id="deleteBtn" class="btn btn-danger">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Company Modal -->
+    <div id="addModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Add New Company</h2>
+            <form id="addCompanyForm">
+                <div class="form-group">
+                    <label for="companyName">Company Name</label>
+                    <input type="text" id="companyName" required placeholder="e.g., Netflix">
+                </div>
+                <div class="form-group">
+                    <label for="companyCategory">Category</label>
+                    <select id="companyCategory" required>
+                        <option value="">Select category</option>
+                        <option value="social">Social Media</option>
+                        <option value="dating">Dating</option>
+                        <option value="streaming">Streaming</option>
+                        <option value="professional">Professional</option>
+                        <option value="ecommerce">E-commerce</option>
+                        <option value="gaming">Gaming</option>
+                        <option value="finance">Finance</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="termsText">Terms & Conditions Text</label>
+                    <textarea id="termsText" required rows="10" placeholder="Paste the terms and conditions here..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Add & Analyze</button>
+                    <button type="button" class="btn btn-secondary" id="cancelAddBtn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
