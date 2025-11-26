@@ -75,9 +75,11 @@ class DynamoDBService:
         return response.get('Item')
 
     def create_company(self, name: str, category: str, terms_text: str,
-                       terms_risks: List[Dict] = None, summary: str = None,
+                       terms_risks: List[Dict] = None, terms_summary: str = None,
                        icon_url: str = None, cookie_text: str = None,
-                       cookie_summary: str = None, cookie_risks: List[Dict] = None) -> Dict[str, Any]:
+                       cookie_summary: str = None, cookie_risks: List[Dict] = None,
+                       privacy_text: str = None, privacy_summary: str = None,
+                       privacy_risks: List[Dict] = None) -> Dict[str, Any]:
         """Create a new company entry"""
         company_id = str(uuid.uuid4())
 
@@ -85,29 +87,34 @@ class DynamoDBService:
             'id': company_id,
             'name': name,
             'category': category,
-            'terms_text': terms_text,
-            'terms_risks': terms_risks or [],
-            'summary': summary or '',
             'icon_url': icon_url or '',
             'last_updated': datetime.utcnow().isoformat(),
+            # Terms and conditions fields
+            'terms_text': terms_text,
+            'terms_summary': terms_summary or '',
+            'terms_risks': terms_risks or [],
             # Cookie policy fields
             'cookie_text': cookie_text or '',
             'cookie_summary': cookie_summary or '',
-            'cookie_risks': cookie_risks or []
+            'cookie_risks': cookie_risks or [],
+            # Privacy policy fields
+            'privacy_text': privacy_text or '',
+            'privacy_summary': privacy_summary or '',
+            'privacy_risks': privacy_risks or []
         }
 
         self.table.put_item(Item=item)
         return item
 
-    def update_company_analysis(self, company_id: str, terms_risks: List[Dict], summary: str) -> bool:
+    def update_company_analysis(self, company_id: str, terms_risks: List[Dict], terms_summary: str) -> bool:
         """Update company with T&C analysis results"""
         try:
             self.table.update_item(
                 Key={'id': company_id},
-                UpdateExpression='SET terms_risks = :r, summary = :s, last_updated = :u',
+                UpdateExpression='SET terms_risks = :r, terms_summary = :s, last_updated = :u',
                 ExpressionAttributeValues={
                     ':r': terms_risks,
-                    ':s': summary,
+                    ':s': terms_summary,
                     ':u': datetime.utcnow().isoformat()
                 }
             )
@@ -149,6 +156,39 @@ class DynamoDBService:
             print(f"Error updating cookie analysis: {e}")
             return False
 
+    def update_privacy_text(self, company_id: str, privacy_text: str) -> bool:
+        """Update company with privacy policy text"""
+        try:
+            self.table.update_item(
+                Key={'id': company_id},
+                UpdateExpression='SET privacy_text = :pt, last_updated = :u',
+                ExpressionAttributeValues={
+                    ':pt': privacy_text,
+                    ':u': datetime.utcnow().isoformat()
+                }
+            )
+            return True
+        except Exception as e:
+            print(f"Error updating privacy text: {e}")
+            return False
+
+    def update_company_privacy_analysis(self, company_id: str, privacy_risks: List[Dict], privacy_summary: str) -> bool:
+        """Update company with privacy policy analysis results"""
+        try:
+            self.table.update_item(
+                Key={'id': company_id},
+                UpdateExpression='SET privacy_risks = :pr, privacy_summary = :ps, last_updated = :u',
+                ExpressionAttributeValues={
+                    ':pr': privacy_risks,
+                    ':ps': privacy_summary,
+                    ':u': datetime.utcnow().isoformat()
+                }
+            )
+            return True
+        except Exception as e:
+            print(f"Error updating privacy analysis: {e}")
+            return False
+
     def delete_company(self, company_id: str) -> bool:
         """Delete a company"""
         try:
@@ -157,11 +197,13 @@ class DynamoDBService:
         except Exception:
             return False
 
-    def migrate_risks_to_terms_risks(self) -> Dict[str, Any]:
+    def migrate_schema(self) -> Dict[str, Any]:
         """
-        Migration: Rename 'risks' field to 'terms_risks' for all existing companies.
-        This copies data from 'risks' to 'terms_risks' and removes the old field.
-        Safe to run multiple times - skips already migrated records.
+        Migration: Rename old fields to new naming convention.
+        - 'risks' → 'terms_risks'
+        - 'summary' → 'terms_summary'
+        Also initializes new fields (privacy_*, cookie_*) if missing.
+        Safe to run multiple times - only updates what needs updating.
         """
         companies = self.get_all_companies()
         migrated = 0
@@ -170,31 +212,76 @@ class DynamoDBService:
 
         for company in companies:
             company_id = company.get('id')
-            has_old_risks = 'risks' in company
-            has_new_terms_risks = 'terms_risks' in company
+            needs_update = False
+            update_expr_parts = []
+            remove_parts = []
+            expr_values = {':u': datetime.utcnow().isoformat()}
 
-            # Skip if already migrated (has terms_risks, no risks)
-            if has_new_terms_risks and not has_old_risks:
-                skipped += 1
-                continue
+            # Migrate risks → terms_risks
+            if 'risks' in company:
+                update_expr_parts.append('terms_risks = :tr')
+                expr_values[':tr'] = company.get('risks', [])
+                remove_parts.append('risks')
+                needs_update = True
+            elif 'terms_risks' not in company:
+                update_expr_parts.append('terms_risks = :tr')
+                expr_values[':tr'] = []
+                needs_update = True
 
-            # Skip if nothing to migrate
-            if not has_old_risks and not has_new_terms_risks:
+            # Migrate summary → terms_summary
+            if 'summary' in company:
+                update_expr_parts.append('terms_summary = :ts')
+                expr_values[':ts'] = company.get('summary', '')
+                remove_parts.append('summary')
+                needs_update = True
+            elif 'terms_summary' not in company:
+                update_expr_parts.append('terms_summary = :ts')
+                expr_values[':ts'] = ''
+                needs_update = True
+
+            # Initialize cookie fields if missing
+            if 'cookie_text' not in company:
+                update_expr_parts.append('cookie_text = :ct')
+                expr_values[':ct'] = ''
+                needs_update = True
+            if 'cookie_summary' not in company:
+                update_expr_parts.append('cookie_summary = :cs')
+                expr_values[':cs'] = ''
+                needs_update = True
+            if 'cookie_risks' not in company:
+                update_expr_parts.append('cookie_risks = :cr')
+                expr_values[':cr'] = []
+                needs_update = True
+
+            # Initialize privacy fields if missing
+            if 'privacy_text' not in company:
+                update_expr_parts.append('privacy_text = :pt')
+                expr_values[':pt'] = ''
+                needs_update = True
+            if 'privacy_summary' not in company:
+                update_expr_parts.append('privacy_summary = :ps')
+                expr_values[':ps'] = ''
+                needs_update = True
+            if 'privacy_risks' not in company:
+                update_expr_parts.append('privacy_risks = :pr')
+                expr_values[':pr'] = []
+                needs_update = True
+
+            if not needs_update:
                 skipped += 1
                 continue
 
             try:
-                # Get the risks data (prefer old field for migration)
-                risks_data = company.get('risks', company.get('terms_risks', []))
+                # Build update expression
+                update_expr_parts.append('last_updated = :u')
+                update_expr = 'SET ' + ', '.join(update_expr_parts)
+                if remove_parts:
+                    update_expr += ' REMOVE ' + ', '.join(remove_parts)
 
-                # Update: set terms_risks and remove old risks field
                 self.table.update_item(
                     Key={'id': company_id},
-                    UpdateExpression='SET terms_risks = :tr, last_updated = :u REMOVE risks',
-                    ExpressionAttributeValues={
-                        ':tr': risks_data,
-                        ':u': datetime.utcnow().isoformat()
-                    }
+                    UpdateExpression=update_expr,
+                    ExpressionAttributeValues=expr_values
                 )
                 migrated += 1
             except Exception as e:

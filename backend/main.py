@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, FileResponse
 from typing import List
 import os
 
-from models import Company, CompanyCreate, CompanyResponse, Risk, UploadTermsRequest, UploadCookieRequest
+from models import Company, CompanyCreate, CompanyResponse, Risk, UploadTermsRequest, UploadCookieRequest, UploadPrivacyRequest
 from services import BedrockService, DynamoDBService, ScraperService, VectorDBService
 
 app = FastAPI(
@@ -93,7 +93,7 @@ async def create_company(request: UploadTermsRequest):
         db_service.update_company_analysis(
             company_id=company['id'],
             terms_risks=analysis.get('risks', []),
-            summary=analysis.get('summary', '')
+            terms_summary=analysis.get('summary', '')
         )
 
         # Index terms in vector database for RAG
@@ -134,7 +134,7 @@ async def analyze_company(company_id: str):
         db_service.update_company_analysis(
             company_id=company_id,
             terms_risks=analysis.get('risks', []),
-            summary=analysis.get('summary', '')
+            terms_summary=analysis.get('summary', '')
         )
 
         # Re-index terms in vector database
@@ -224,6 +224,77 @@ async def analyze_cookie_policy(company_id: str):
         raise HTTPException(status_code=500, detail=f"Cookie analysis failed: {str(e)}")
 
 
+@app.post("/api/companies/{company_id}/privacy", response_model=CompanyResponse)
+async def upload_privacy_policy(company_id: str, request: UploadPrivacyRequest):
+    """Upload privacy policy for a company"""
+    company = db_service.get_company(company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    # Get privacy text - either from direct input or by scraping URL
+    privacy_text = request.privacy_text
+
+    if request.privacy_url and not privacy_text:
+        try:
+            privacy_text = scraper_service.fetch_terms_from_url(request.privacy_url)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    if not privacy_text:
+        raise HTTPException(status_code=400, detail="Either privacy_text or privacy_url is required")
+
+    # Update company with privacy text
+    db_service.update_privacy_text(company_id, privacy_text)
+
+    # Analyze privacy policy using Bedrock
+    try:
+        analysis = bedrock_service.analyze_privacy_policy(
+            company_name=company['name'],
+            privacy_text=privacy_text
+        )
+
+        # Update company with privacy analysis
+        db_service.update_company_privacy_analysis(
+            company_id=company_id,
+            privacy_risks=analysis.get('privacy_risks', []),
+            privacy_summary=analysis.get('privacy_summary', '')
+        )
+
+        return db_service.get_company(company_id)
+
+    except Exception as e:
+        print(f"Privacy analysis failed: {e}")
+        return db_service.get_company(company_id)
+
+
+@app.post("/api/companies/{company_id}/analyze-privacy", response_model=CompanyResponse)
+async def analyze_privacy_policy(company_id: str):
+    """Analyze or re-analyze a company's privacy policy"""
+    company = db_service.get_company(company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    if not company.get('privacy_text'):
+        raise HTTPException(status_code=400, detail="No privacy policy text available for analysis")
+
+    try:
+        analysis = bedrock_service.analyze_privacy_policy(
+            company_name=company['name'],
+            privacy_text=company['privacy_text']
+        )
+
+        db_service.update_company_privacy_analysis(
+            company_id=company_id,
+            privacy_risks=analysis.get('privacy_risks', []),
+            privacy_summary=analysis.get('privacy_summary', '')
+        )
+
+        return db_service.get_company(company_id)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Privacy analysis failed: {str(e)}")
+
+
 @app.delete("/api/companies/{company_id}")
 async def delete_company(company_id: str):
     """Delete a company"""
@@ -245,13 +316,16 @@ async def seed_database():
     return {"status": "seeded", "companies_created": len(created)}
 
 
-@app.post("/api/migrate-risks")
-async def migrate_risks_field():
+@app.post("/api/migrate-schema")
+async def migrate_schema():
     """
-    One-time migration: Rename 'risks' field to 'terms_risks' in all existing records.
-    Safe to run multiple times - skips already migrated records.
+    One-time migration: Update schema to new naming convention.
+    - Renames 'risks' → 'terms_risks'
+    - Renames 'summary' → 'terms_summary'
+    - Initializes cookie_* and privacy_* fields if missing
+    Safe to run multiple times - only updates what needs updating.
     """
-    result = db_service.migrate_risks_to_terms_risks()
+    result = db_service.migrate_schema()
     return {
         "status": "completed",
         "migrated": result['migrated'],

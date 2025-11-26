@@ -14,14 +14,19 @@ class Company(BaseModel):
     name: str
     icon_url: Optional[str] = None
     category: str  # "social", "dating", "streaming", etc.
-    terms_risks: List[Risk] = []
-    summary: Optional[str] = None
     last_updated: Optional[str] = None
+    # Terms and conditions fields
     terms_text: Optional[str] = None
+    terms_summary: Optional[str] = None
+    terms_risks: List[Risk] = []
     # Cookie policy fields
     cookie_text: Optional[str] = None
     cookie_summary: Optional[str] = None
     cookie_risks: List[Risk] = []
+    # Privacy policy fields
+    privacy_text: Optional[str] = None
+    privacy_summary: Optional[str] = None
+    privacy_risks: List[Risk] = []
 
 
 class CompanyCreate(BaseModel):
@@ -35,14 +40,19 @@ class CompanyResponse(BaseModel):
     name: str
     icon_url: Optional[str] = None
     category: str
-    terms_risks: List[Risk] = []
-    summary: Optional[str] = None
     last_updated: Optional[str] = None
+    # Terms and conditions fields
     terms_text: Optional[str] = None
+    terms_summary: Optional[str] = None
+    terms_risks: List[Risk] = []
     # Cookie policy fields
     cookie_text: Optional[str] = None
     cookie_summary: Optional[str] = None
     cookie_risks: List[Risk] = []
+    # Privacy policy fields
+    privacy_text: Optional[str] = None
+    privacy_summary: Optional[str] = None
+    privacy_risks: List[Risk] = []
 
 
 class RiskAnalysisRequest(BaseModel):
@@ -59,3 +69,8 @@ class UploadTermsRequest(BaseModel):
 class UploadCookieRequest(BaseModel):
     cookie_text: Optional[str] = None
     cookie_url: Optional[str] = None
+
+
+class UploadPrivacyRequest(BaseModel):
+    privacy_text: Optional[str] = None
+    privacy_url: Optional[str] = None

@@ -44,8 +44,9 @@ Handles AI operations using AWS Bedrock:
 
 | Method | Description |
 |--------|-------------|
-| `analyze_terms_and_conditions()` | Analyze T&C text, returns risks and summary |
+| `analyze_terms_and_conditions()` | Analyze T&C text, returns terms_risks and summary |
 | `analyze_cookie_policy()` | Analyze cookie policy, returns cookie_risks and cookie_summary |
+| `analyze_privacy_policy()` | Analyze privacy policy, returns privacy_risks and privacy_summary |
 | `chat_about_terms()` | Answer questions about specific company's terms |
 | `generate_embedding()` | Generate 1536-dim vectors using Titan Embeddings |
 | `rag_chat()` | RAG-powered chat with context from vector search |
@@ -63,11 +64,13 @@ Manages company data in DynamoDB:
 | `get_all_companies()` | List all companies |
 | `get_company(id)` | Get single company by ID |
 | `create_company()` | Create new company entry |
-| `update_company_analysis()` | Update T&C terms_risks and summary |
+| `update_company_analysis()` | Update T&C terms_risks and terms_summary |
 | `update_cookie_text()` | Update cookie policy text |
 | `update_company_cookie_analysis()` | Update cookie risks and summary |
+| `update_privacy_text()` | Update privacy policy text |
+| `update_company_privacy_analysis()` | Update privacy risks and summary |
 | `delete_company(id)` | Delete company |
-| `migrate_risks_to_terms_risks()` | Migrate old risks → terms_risks field |
+| `migrate_schema()` | Migrate schema (risks→terms_risks, summary→terms_summary, init new fields) |
 | `seed_sample_data()` | Load sample companies |
 
 **Table:** `TermsAndConditions` (auto-created on first use)
@@ -107,13 +110,15 @@ Fetches T&C from URLs:
 | POST | `/api/companies/{id}/analyze` | Re-analyze T&C |
 | POST | `/api/companies/{id}/cookie` | Upload cookie policy (accepts `cookie_text` or `cookie_url`) |
 | POST | `/api/companies/{id}/analyze-cookie` | Re-analyze cookie policy |
+| POST | `/api/companies/{id}/privacy` | Upload privacy policy (accepts `privacy_text` or `privacy_url`) |
+| POST | `/api/companies/{id}/analyze-privacy` | Re-analyze privacy policy |
 | POST | `/api/companies/{id}/chat` | Chat about specific company |
 | POST | `/api/chat` | RAG chat (optional `company_id` filter) |
 | POST | `/api/index-all` | Index all companies in vector DB |
 | GET | `/api/vector-stats` | Vector database statistics |
 | DELETE | `/api/companies/{id}` | Delete company |
 | POST | `/api/seed` | Load sample data |
-| POST | `/api/migrate-risks` | Migrate risks → terms_risks (one-time) |
+| POST | `/api/migrate-schema` | Migrate schema (one-time) |
 
 ## Pydantic Models
 
@@ -128,14 +133,19 @@ class Company:
     name: str
     category: str  # "social", "dating", "professional", etc.
     icon_url: Optional[str]
+    last_updated: Optional[str]
+    # Terms and conditions fields
     terms_text: Optional[str]
-    summary: Optional[str]
+    terms_summary: Optional[str]
     terms_risks: List[Risk]
     # Cookie policy fields
     cookie_text: Optional[str]
     cookie_summary: Optional[str]
     cookie_risks: List[Risk]
-    last_updated: Optional[str]
+    # Privacy policy fields
+    privacy_text: Optional[str]
+    privacy_summary: Optional[str]
+    privacy_risks: List[Risk]
 
 class UploadTermsRequest:
     company_name: str
@@ -146,6 +156,10 @@ class UploadTermsRequest:
 class UploadCookieRequest:
     cookie_text: Optional[str]  # Either this...
     cookie_url: Optional[str]   # ...or this is required
+
+class UploadPrivacyRequest:
+    privacy_text: Optional[str]  # Either this...
+    privacy_url: Optional[str]   # ...or this is required
 ```
 
 ## AWS Resources

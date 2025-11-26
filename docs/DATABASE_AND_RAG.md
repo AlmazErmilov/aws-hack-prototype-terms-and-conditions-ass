@@ -80,13 +80,16 @@ erDiagram
         string name "Company name"
         string category "social|dating|streaming|professional|ecommerce|gaming|finance|other"
         string icon_url "URL to company logo"
+        string last_updated "ISO timestamp"
         string terms_text "Full T&C text"
-        string summary "AI-generated T&C summary"
+        string terms_summary "AI-generated T&C summary"
         list terms_risks "Array of Risk objects for T&C"
         string cookie_text "Full cookie policy text"
         string cookie_summary "AI-generated cookie summary"
         list cookie_risks "Array of Risk objects for cookies"
-        string last_updated "ISO timestamp"
+        string privacy_text "Full privacy policy text"
+        string privacy_summary "AI-generated privacy summary"
+        list privacy_risks "Array of Risk objects for privacy"
     }
 
     RISK {
@@ -106,8 +109,9 @@ erDiagram
   "name": "LinkedIn",
   "category": "professional",
   "icon_url": "https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png",
+  "last_updated": "2025-11-26T10:36:33.835111",
   "terms_text": "LinkedIn Terms of Service Summary...",
-  "summary": "Users agree to share extensive professional data...",
+  "terms_summary": "Users agree to share extensive professional data...",
   "terms_risks": [
     {
       "title": "Extensive Professional Data Collection",
@@ -124,7 +128,15 @@ erDiagram
       "severity": "medium"
     }
   ],
-  "last_updated": "2025-11-26T10:36:33.835111"
+  "privacy_text": "LinkedIn Privacy Policy...",
+  "privacy_summary": "LinkedIn collects and processes personal data for service delivery and advertising...",
+  "privacy_risks": [
+    {
+      "title": "Extensive Data Sharing",
+      "description": "LinkedIn shares data with Microsoft and third-party partners...",
+      "severity": "medium"
+    }
+  ]
 }
 ```
 
@@ -474,12 +486,14 @@ flowchart TD
 | `/api/companies/{id}/analyze` | POST | Re-analyze company T&C |
 | `/api/companies/{id}/cookie` | POST | Upload and analyze cookie policy |
 | `/api/companies/{id}/analyze-cookie` | POST | Re-analyze cookie policy |
+| `/api/companies/{id}/privacy` | POST | Upload and analyze privacy policy |
+| `/api/companies/{id}/analyze-privacy` | POST | Re-analyze privacy policy |
 | `/api/companies/{id}` | DELETE | Delete company |
 | `/api/chat` | POST | RAG-powered chat |
 | `/api/index-all` | POST | Index all companies |
 | `/api/vector-stats` | GET | Get vector DB stats |
 | `/api/seed` | POST | Load sample data |
-| `/api/migrate-risks` | POST | Migrate risks → terms_risks field |
+| `/api/migrate-schema` | POST | Migrate schema (risks→terms_risks, summary→terms_summary, init new fields) |
 
 ---
 

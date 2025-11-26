@@ -150,16 +150,14 @@ flowchart LR
 ## Risk Severity Distribution
 
 ```mermaid
-pie showData
-    title Typical Risk Categories Found
-    "Data Collection" : 25
-    "Data Sharing" : 20
-    "Content Rights" : 15
-    "User Tracking" : 15
-    "Account Terms" : 10
-    "Arbitration" : 10
-    "Financial" : 5
+xychart-beta horizontal
+    title "Risk Categories by Severity Level"
+    x-axis ["Data Collection", "Data Sharing", "User Tracking", "Content Rights", "Account Terms", "Arbitration", "Financial"]
+    y-axis "Severity" 0 --> 3
+    bar [3, 3, 2, 2, 2, 1, 1]
 ```
+
+> **Legend**: 3 = High (🔴), 2 = Medium (🟡), 1 = Low (🟢)
 
 ## Features
 
@@ -294,12 +292,17 @@ flowchart LR
 | `GET` | `/api/companies/{id}` | Get company by ID |
 | `POST` | `/api/companies` | Create company + analyze T&C (supports URL scraping) |
 | `POST` | `/api/companies/{id}/analyze` | Re-analyze company T&C |
+| `POST` | `/api/companies/{id}/cookie` | Upload and analyze cookie policy |
+| `POST` | `/api/companies/{id}/analyze-cookie` | Re-analyze cookie policy |
+| `POST` | `/api/companies/{id}/privacy` | Upload and analyze privacy policy |
+| `POST` | `/api/companies/{id}/analyze-privacy` | Re-analyze privacy policy |
 | `POST` | `/api/companies/{id}/chat` | Chat about specific company's terms |
 | `POST` | `/api/chat` | RAG chat across all companies |
 | `POST` | `/api/index-all` | Index all companies in vector DB |
 | `GET` | `/api/vector-stats` | Get vector database statistics |
 | `DELETE` | `/api/companies/{id}` | Delete company |
 | `POST` | `/api/seed` | Load sample data |
+| `POST` | `/api/migrate-schema` | One-time schema migration |
 
 ### Example Response
 
@@ -308,14 +311,18 @@ flowchart LR
   "id": "uuid-here",
   "name": "Facebook",
   "category": "social",
-  "summary": "Users agree to allow Facebook to collect, share, and commercially exploit their data...",
-  "risks": [
+  "terms_summary": "Users agree to allow Facebook to collect, share, and commercially exploit their data...",
+  "terms_risks": [
     {
       "title": "Extensive Data Collection",
       "description": "Facebook collects information you provide, content you create, and information about your connections.",
       "severity": "high"
     }
-  ]
+  ],
+  "cookie_summary": "",
+  "cookie_risks": [],
+  "privacy_summary": "",
+  "privacy_risks": []
 }
 ```
 

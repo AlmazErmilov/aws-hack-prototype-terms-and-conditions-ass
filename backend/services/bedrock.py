@@ -191,6 +191,92 @@ Respond ONLY with valid JSON, no additional text."""
                 ]
             }
 
+    def analyze_privacy_policy(self, company_name: str, privacy_text: str) -> Dict[str, Any]:
+        """
+        Analyze privacy policy using Claude Sonnet 4 on Bedrock
+        Returns a summary and list of privacy-related risks
+        """
+        prompt = f"""You are an expert privacy analyst specializing in privacy policies. Analyze the following Privacy Policy for {company_name}.
+
+Provide your analysis in the following JSON format:
+{{
+    "privacy_summary": "A brief 2-3 sentence summary of the privacy practices",
+    "privacy_risks": [
+        {{
+            "title": "Risk title",
+            "description": "Detailed description of the privacy-related risk",
+            "severity": "low|medium|high"
+        }}
+    ]
+}}
+
+Focus on:
+1. Types of personal data collected (PII, sensitive data, biometrics)
+2. Data retention periods and policies
+3. Third-party data sharing and selling
+4. User rights (access, deletion, portability)
+5. Data security measures mentioned
+6. International data transfers
+7. Children's privacy protections
+8. Automated decision-making and profiling
+
+Privacy Policy:
+{privacy_text[:8000]}
+
+Respond ONLY with valid JSON, no additional text."""
+
+        body = json.dumps({
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 4096,
+            "temperature": 0.3,
+            "top_p": 0.9,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ]
+        })
+
+        response = self.client.invoke_model(
+            modelId=self.model_id,
+            body=body,
+            contentType="application/json",
+            accept="application/json"
+        )
+
+        response_body = json.loads(response['body'].read())
+        result_text = response_body['content'][0]['text']
+
+        # Parse the JSON response
+        try:
+            # Clean up response if needed
+            result_text = result_text.strip()
+            if result_text.startswith("```json"):
+                result_text = result_text[7:]
+            if result_text.startswith("```"):
+                result_text = result_text[3:]
+            if result_text.endswith("```"):
+                result_text = result_text[:-3]
+
+            # Find JSON in response
+            start_idx = result_text.find('{')
+            end_idx = result_text.rfind('}') + 1
+            if start_idx != -1 and end_idx > start_idx:
+                result_text = result_text[start_idx:end_idx]
+
+            analysis = json.loads(result_text.strip())
+            return analysis
+        except json.JSONDecodeError:
+            # Fallback if JSON parsing fails
+            return {
+                "privacy_summary": "Unable to parse privacy analysis",
+                "privacy_risks": [
+                    {
+                        "title": "Analysis Error",
+                        "description": result_text[:500],
+                        "severity": "medium"
+                    }
+                ]
+            }
+
     def chat_about_terms(self, company_name: str, terms_text: str, user_question: str) -> str:
         """
         Answer user questions about specific terms and conditions

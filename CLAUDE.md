@@ -41,10 +41,10 @@ frontend/
 
 ## Key Services
 
-- **BedrockService**: Uses Claude Sonnet 4 (`us.anthropic.claude-sonnet-4-20250514-v1:0`) for analysis and chat. Uses Amazon Titan Embeddings V1 for 1536-dimensional vectors.
-- **DynamoDBService**: Table `TermsAndConditions` with `id` (UUID) as partition key. Stores company metadata, T&C text, risks, and summaries.
+- **BedrockService**: Uses Claude Sonnet 4 (`us.anthropic.claude-sonnet-4-20250514-v1:0`) for analysis and chat. Uses Amazon Titan Embeddings V1 for 1536-dimensional vectors. Analyzes T&C, cookie policies, and privacy policies.
+- **DynamoDBService**: Table `TermsAndConditions` with `id` (UUID) as partition key. Stores company metadata, terms/cookie/privacy text and analysis.
 - **VectorDBService**: OpenSearch Serverless collection `tc-vectors`, index `tc-chunks`. Text chunked at 1000 chars with 200 char overlap.
-- **ScraperService**: Fetches T&C text from URLs using BeautifulSoup.
+- **ScraperService**: Fetches T&C/cookie/privacy text from URLs using BeautifulSoup.
 
 ## AWS Configuration
 
@@ -62,12 +62,14 @@ Region: `us-west-2`. Requires environment variables:
 | `/api/companies/{id}/analyze` | POST | Re-analyze T&C |
 | `/api/companies/{id}/cookie` | POST | Upload and analyze cookie policy |
 | `/api/companies/{id}/analyze-cookie` | POST | Re-analyze cookie policy |
+| `/api/companies/{id}/privacy` | POST | Upload and analyze privacy policy |
+| `/api/companies/{id}/analyze-privacy` | POST | Re-analyze privacy policy |
 | `/api/companies/{id}/chat` | POST | Chat about specific company |
 | `/api/chat` | POST | RAG chat (optional `company_id` filter) |
 | `/api/index-all` | POST | Index all companies in vector DB |
 | `/api/vector-stats` | GET | Vector DB statistics |
 | `/api/seed` | POST | Load sample data |
-| `/api/migrate-risks` | POST | Migrate risks → terms_risks (one-time) |
+| `/api/migrate-schema` | POST | Migrate schema (one-time) |
 
 ## Progress Tracking
 
