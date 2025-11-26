@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Terms & Conditions Risk Analyzer</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -15,6 +16,7 @@
 
         <div class="controls">
             <button id="addCompanyBtn" class="btn btn-primary">+ Add Company</button>
+            <button id="analyticsBtn" class="btn btn-analytics">Analytics</button>
             <button id="seedBtn" class="btn btn-secondary">Load Sample Data</button>
         </div>
 
@@ -230,6 +232,103 @@
                     <button type="button" class="btn btn-secondary" id="cancelAddBtn">Cancel</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Analytics Modal -->
+    <div id="analyticsModal" class="modal">
+        <div class="modal-content modal-content-analytics">
+            <span class="close" onclick="closeAnalyticsModal()">&times;</span>
+            <div class="modal-header analytics-header">
+                <h2>Risk Analytics Dashboard</h2>
+                <p class="analytics-subtitle">Visual overview of privacy risks across all companies</p>
+            </div>
+            <div class="modal-body analytics-body">
+                <div class="analytics-grid">
+                    <!-- Risk Severity Distribution -->
+                    <div class="chart-card">
+                        <h3>Risk Severity Distribution</h3>
+                        <p class="chart-description">Overall distribution of risks by severity level</p>
+                        <div class="chart-container chart-container-doughnut">
+                            <canvas id="severityChart"></canvas>
+                        </div>
+                        <div id="severityLegend" class="chart-legend"></div>
+                    </div>
+
+                    <!-- Risks by Company -->
+                    <div class="chart-card">
+                        <h3>Risks by Company</h3>
+                        <p class="chart-description">Total risk count per company</p>
+                        <div class="chart-container chart-container-bar">
+                            <canvas id="companyRisksChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Policy Type Breakdown -->
+                    <div class="chart-card">
+                        <h3>Risks by Policy Type</h3>
+                        <p class="chart-description">Distribution across Terms, Cookie, and Privacy policies</p>
+                        <div class="chart-container chart-container-doughnut">
+                            <canvas id="policyTypeChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Severity by Company -->
+                    <div class="chart-card chart-card-wide">
+                        <h3>Severity Breakdown by Company</h3>
+                        <p class="chart-description">Stacked view of risk severity for each company</p>
+                        <div class="chart-container chart-container-stacked">
+                            <canvas id="severityByCompanyChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Category Statistics -->
+                    <div class="chart-card">
+                        <h3>Category Statistics</h3>
+                        <p class="chart-description">Risk distribution by company category</p>
+                        <div class="chart-container chart-container-bar">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Summary Stats -->
+                    <div class="chart-card stats-card">
+                        <h3>Summary</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-value" id="totalCompanies">0</span>
+                                <span class="stat-label">Companies</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="totalRisks">0</span>
+                                <span class="stat-label">Total Risks</span>
+                            </div>
+                            <div class="stat-item stat-high">
+                                <span class="stat-value" id="highRisks">0</span>
+                                <span class="stat-label">High Severity</span>
+                            </div>
+                            <div class="stat-item stat-medium">
+                                <span class="stat-value" id="mediumRisks">0</span>
+                                <span class="stat-label">Medium Severity</span>
+                            </div>
+                            <div class="stat-item stat-low">
+                                <span class="stat-value" id="lowRisks">0</span>
+                                <span class="stat-label">Low Severity</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="avgRisks">0</span>
+                                <span class="stat-label">Avg Risks/Company</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="analyticsEmpty" class="analytics-empty" style="display: none;">
+                    <div class="empty-policy-icon">📊</div>
+                    <p>No data available for visualization</p>
+                    <p class="hint">Add companies and analyze their policies to see risk analytics</p>
+                </div>
+            </div>
         </div>
     </div>
 

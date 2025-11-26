@@ -21,6 +21,8 @@ A RAG-based web application that analyzes Terms and Conditions from major compan
 - [x] DynamoDB service for data persistence
 - [x] OpenSearch Serverless for vector storage
 - [x] RAG-powered chat functionality
+- [x] Vector indexing for all policy types (terms, cookie, privacy)
+- [x] Unified vector index with policy_type field
 - [x] URL scraping for T&C documents
 - [x] Cookie policy analysis support
 - [x] REST API endpoints:

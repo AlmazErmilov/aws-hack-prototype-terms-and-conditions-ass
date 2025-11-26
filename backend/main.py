@@ -189,6 +189,16 @@ async def upload_cookie_policy(company_id: str, request: UploadCookieRequest):
             cookie_summary=analysis.get('cookie_summary', '')
         )
 
+        # Index cookie policy in vector database for RAG
+        try:
+            vector_service.index_company_cookie(
+                company_id=company_id,
+                company_name=company['name'],
+                cookie_text=cookie_text
+            )
+        except Exception as ve:
+            print(f"Cookie vector indexing failed: {ve}")
+
         return db_service.get_company(company_id)
 
     except Exception as e:
@@ -217,6 +227,16 @@ async def analyze_cookie_policy(company_id: str):
             cookie_risks=analysis.get('cookie_risks', []),
             cookie_summary=analysis.get('cookie_summary', '')
         )
+
+        # Re-index cookie policy in vector database
+        try:
+            vector_service.index_company_cookie(
+                company_id=company_id,
+                company_name=company['name'],
+                cookie_text=company['cookie_text']
+            )
+        except Exception as ve:
+            print(f"Cookie vector indexing failed: {ve}")
 
         return db_service.get_company(company_id)
 
@@ -260,6 +280,16 @@ async def upload_privacy_policy(company_id: str, request: UploadPrivacyRequest):
             privacy_summary=analysis.get('privacy_summary', '')
         )
 
+        # Index privacy policy in vector database for RAG
+        try:
+            vector_service.index_company_privacy(
+                company_id=company_id,
+                company_name=company['name'],
+                privacy_text=privacy_text
+            )
+        except Exception as ve:
+            print(f"Privacy vector indexing failed: {ve}")
+
         return db_service.get_company(company_id)
 
     except Exception as e:
@@ -288,6 +318,16 @@ async def analyze_privacy_policy(company_id: str):
             privacy_risks=analysis.get('privacy_risks', []),
             privacy_summary=analysis.get('privacy_summary', '')
         )
+
+        # Re-index privacy policy in vector database
+        try:
+            vector_service.index_company_privacy(
+                company_id=company_id,
+                company_name=company['name'],
+                privacy_text=company['privacy_text']
+            )
+        except Exception as ve:
+            print(f"Privacy vector indexing failed: {ve}")
 
         return db_service.get_company(company_id)
 
@@ -402,21 +442,30 @@ async def rag_chat(request: dict):
 
             if not chunks:
                 return {
-                    "response": "I don't have any terms and conditions indexed yet. Please add some companies first, or try re-analyzing existing ones.",
+                    "response": "I don't have any policies indexed yet. Please add some companies first, or try re-analyzing existing ones.",
                     "sources": []
                 }
 
-            # Format sources for frontend
+            # Format sources for frontend (include policy type)
             sources = []
             seen = set()
+            policy_type_labels = {
+                "terms": "Terms & Conditions",
+                "cookie": "Cookie Policy",
+                "privacy": "Privacy Policy"
+            }
             for chunk in chunks:
                 company_name = chunk.get('company_name')
-                if company_name and company_name not in seen:
+                policy_type = chunk.get('policy_type', 'terms')
+                source_key = f"{company_name}_{policy_type}"
+                if company_name and source_key not in seen:
                     sources.append({
                         "company_id": chunk.get('company_id'),
-                        "company_name": company_name
+                        "company_name": company_name,
+                        "policy_type": policy_type,
+                        "policy_label": policy_type_labels.get(policy_type, 'Terms & Conditions')
                     })
-                    seen.add(company_name)
+                    seen.add(source_key)
 
         # Generate response using RAG
         response = bedrock_service.rag_chat(
@@ -436,27 +485,52 @@ async def rag_chat(request: dict):
 
 @app.post("/api/index-all")
 async def index_all_companies():
-    """Index all existing companies in the vector database"""
+    """Index all existing companies in the vector database (all policy types)"""
     companies = db_service.get_all_companies()
-    indexed = 0
+    indexed_counts = {"terms": 0, "cookie": 0, "privacy": 0}
     errors = []
 
     for company in companies:
+        # Index terms
         if company.get('terms_text'):
             try:
-                chunks = vector_service.index_company_terms(
+                vector_service.index_company_terms(
                     company_id=company['id'],
                     company_name=company['name'],
                     terms_text=company['terms_text']
                 )
-                indexed += 1
+                indexed_counts["terms"] += 1
             except Exception as e:
-                errors.append(f"{company['name']}: {str(e)}")
+                errors.append(f"{company['name']} (terms): {str(e)}")
+
+        # Index cookie policy
+        if company.get('cookie_text'):
+            try:
+                vector_service.index_company_cookie(
+                    company_id=company['id'],
+                    company_name=company['name'],
+                    cookie_text=company['cookie_text']
+                )
+                indexed_counts["cookie"] += 1
+            except Exception as e:
+                errors.append(f"{company['name']} (cookie): {str(e)}")
+
+        # Index privacy policy
+        if company.get('privacy_text'):
+            try:
+                vector_service.index_company_privacy(
+                    company_id=company['id'],
+                    company_name=company['name'],
+                    privacy_text=company['privacy_text']
+                )
+                indexed_counts["privacy"] += 1
+            except Exception as e:
+                errors.append(f"{company['name']} (privacy): {str(e)}")
 
     return {
         "status": "completed",
-        "indexed": indexed,
-        "total": len(companies),
+        "indexed": indexed_counts,
+        "total_companies": len(companies),
         "errors": errors
     }
 

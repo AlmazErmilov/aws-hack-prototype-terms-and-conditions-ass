@@ -340,10 +340,18 @@ Provide a clear, concise answer. If the terms don't address this question, say s
         """
         # Build context from retrieved chunks
         context_text = ""
+        policy_type_labels = {
+            "terms": "Terms & Conditions",
+            "cookie": "Cookie Policy",
+            "privacy": "Privacy Policy"
+        }
+        
         for i, chunk in enumerate(context_chunks, 1):
             company = chunk.get('company_name', 'Unknown')
+            policy_type = chunk.get('policy_type', 'terms')
+            policy_label = policy_type_labels.get(policy_type, 'Terms & Conditions')
             text = chunk.get('text', '')
-            context_text += f"\n[Source {i} - {company}]:\n{text}\n"
+            context_text += f"\n[Source {i} - {company} ({policy_label})]:\n{text}\n"
 
         # Build conversation history
         messages = []
@@ -351,13 +359,13 @@ Provide a clear, concise answer. If the terms don't address this question, say s
             for msg in conversation_history[-6:]:  # Keep last 6 messages for context
                 messages.append({"role": msg["role"], "content": msg["content"]})
 
-        system_prompt = """You are a helpful assistant that explains Terms and Conditions in simple, clear language.
-You have access to excerpts from various companies' terms and conditions.
-Always cite which company's terms you're referencing in your answers.
+        system_prompt = """You are a helpful assistant that explains Terms and Conditions, Cookie Policies, and Privacy Policies in simple, clear language.
+You have access to excerpts from various companies' legal documents including terms of service, cookie policies, and privacy policies.
+Always cite which company and document type you're referencing in your answers.
 If the retrieved context doesn't contain relevant information, say so honestly.
 Be concise but thorough in your explanations."""
 
-        user_prompt = f"""Based on the following excerpts from Terms and Conditions:
+        user_prompt = f"""Based on the following excerpts from company policies:
 {context_text}
 
 User question: {user_question}

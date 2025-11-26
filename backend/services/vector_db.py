@@ -71,6 +71,7 @@ class VectorDBService:
                             "text": {"type": "text"},
                             "company_id": {"type": "keyword"},
                             "company_name": {"type": "text"},
+                            "policy_type": {"type": "keyword"},  # terms, cookie, privacy
                             "chunk_index": {"type": "integer"}
                         }
                     }
@@ -112,16 +113,23 @@ class VectorDBService:
 
         return chunks
 
-    def index_company_terms(self, company_id: str, company_name: str, terms_text: str) -> int:
+    def index_policy(self, company_id: str, company_name: str, 
+                     policy_text: str, policy_type: str = "terms") -> int:
         """
-        Index a company's terms and conditions
+        Index a company's policy document (terms, cookie, or privacy)
         Returns the number of chunks indexed
+        
+        Args:
+            company_id: Unique identifier for the company
+            company_name: Name of the company
+            policy_text: The policy text to index
+            policy_type: Type of policy - "terms", "cookie", or "privacy"
         """
-        # First, remove any existing chunks for this company
-        self.remove_company(company_id)
+        # First, remove any existing chunks for this company and policy type
+        self.remove_company_policy(company_id, policy_type)
 
         # Chunk the text
-        chunks = self.chunk_text(terms_text)
+        chunks = self.chunk_text(policy_text)
 
         if not chunks:
             return 0
@@ -137,6 +145,7 @@ class VectorDBService:
                     "text": chunk,
                     "company_id": company_id,
                     "company_name": company_name,
+                    "policy_type": policy_type,
                     "chunk_index": i
                 }
 
@@ -147,7 +156,7 @@ class VectorDBService:
                 indexed_count += 1
 
             except Exception as e:
-                print(f"Error indexing chunk {i}: {e}")
+                print(f"Error indexing {policy_type} chunk {i}: {e}")
                 continue
 
         # Refresh index to make documents searchable
@@ -158,9 +167,48 @@ class VectorDBService:
 
         return indexed_count
 
+    def index_company_terms(self, company_id: str, company_name: str, terms_text: str) -> int:
+        """
+        Index a company's terms and conditions (convenience method)
+        """
+        return self.index_policy(company_id, company_name, terms_text, "terms")
+
+    def index_company_cookie(self, company_id: str, company_name: str, cookie_text: str) -> int:
+        """
+        Index a company's cookie policy
+        """
+        return self.index_policy(company_id, company_name, cookie_text, "cookie")
+
+    def index_company_privacy(self, company_id: str, company_name: str, privacy_text: str) -> int:
+        """
+        Index a company's privacy policy
+        """
+        return self.index_policy(company_id, company_name, privacy_text, "privacy")
+
+    def remove_company_policy(self, company_id: str, policy_type: str):
+        """
+        Remove all chunks for a company's specific policy type
+        """
+        try:
+            self.client.delete_by_query(
+                index=self.index_name,
+                body={
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {"term": {"company_id": company_id}},
+                                {"term": {"policy_type": policy_type}}
+                            ]
+                        }
+                    }
+                }
+            )
+        except Exception as e:
+            print(f"Error removing {policy_type} for company {company_id}: {e}")
+
     def remove_company(self, company_id: str):
         """
-        Remove all chunks for a company
+        Remove all chunks for a company (all policy types)
         """
         try:
             # Delete by query
@@ -178,9 +226,16 @@ class VectorDBService:
             print(f"Error removing company {company_id}: {e}")
 
     def search(self, query: str, n_results: int = 5,
-               company_id: Optional[str] = None) -> List[Dict[str, Any]]:
+               company_id: Optional[str] = None,
+               policy_type: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Search for relevant chunks based on query using kNN
+        
+        Args:
+            query: The search query
+            n_results: Number of results to return
+            company_id: Optional filter by company
+            policy_type: Optional filter by policy type (terms, cookie, privacy)
         """
         try:
             # Generate embedding for query
@@ -196,16 +251,21 @@ class VectorDBService:
                 }
             }
 
-            # Add filter if company_id specified
+            # Build filters
+            filters = []
             if company_id:
+                filters.append({"term": {"company_id": company_id}})
+            if policy_type:
+                filters.append({"term": {"policy_type": policy_type}})
+
+            # Add filters if any specified
+            if filters:
                 search_body = {
                     "size": n_results,
                     "query": {
                         "bool": {
                             "must": [knn_query],
-                            "filter": [
-                                {"term": {"company_id": company_id}}
-                            ]
+                            "filter": filters
                         }
                     }
                 }
@@ -229,6 +289,7 @@ class VectorDBService:
                     "text": source.get('text'),
                     "company_id": source.get('company_id'),
                     "company_name": source.get('company_name'),
+                    "policy_type": source.get('policy_type', 'terms'),
                     "chunk_index": source.get('chunk_index'),
                     "score": hit.get('_score')
                 })
@@ -241,18 +302,57 @@ class VectorDBService:
 
     def get_stats(self) -> Dict[str, Any]:
         """
-        Get statistics about the vector database
+        Get statistics about the vector database including breakdown by policy type
         """
         try:
+            # Get total count
             count_response = self.client.count(index=self.index_name)
+            total = count_response.get('count', 0)
+            
+            # Get breakdown by policy type using aggregation
+            agg_body = {
+                "size": 0,
+                "aggs": {
+                    "by_policy_type": {
+                        "terms": {
+                            "field": "policy_type",
+                            "size": 10
+                        }
+                    },
+                    "by_company": {
+                        "cardinality": {
+                            "field": "company_id"
+                        }
+                    }
+                }
+            }
+            
+            agg_response = self.client.search(index=self.index_name, body=agg_body)
+            
+            # Parse aggregation results
+            policy_counts = {}
+            buckets = agg_response.get('aggregations', {}).get('by_policy_type', {}).get('buckets', [])
+            for bucket in buckets:
+                policy_counts[bucket['key']] = bucket['doc_count']
+            
+            company_count = agg_response.get('aggregations', {}).get('by_company', {}).get('value', 0)
+            
             return {
-                "total_chunks": count_response.get('count', 0),
+                "total_chunks": total,
+                "chunks_by_policy_type": {
+                    "terms": policy_counts.get('terms', 0),
+                    "cookie": policy_counts.get('cookie', 0),
+                    "privacy": policy_counts.get('privacy', 0)
+                },
+                "unique_companies": company_count,
                 "index_name": self.index_name,
                 "collection_endpoint": self.collection_endpoint
             }
         except Exception as e:
             return {
                 "total_chunks": 0,
+                "chunks_by_policy_type": {"terms": 0, "cookie": 0, "privacy": 0},
+                "unique_companies": 0,
                 "index_name": self.index_name,
                 "collection_endpoint": self.collection_endpoint,
                 "error": str(e)

@@ -184,6 +184,7 @@ erDiagram
         text text "Chunk text content"
         keyword company_id "Reference to DynamoDB company"
         text company_name "Company name for display"
+        keyword policy_type "terms|cookie|privacy"
         integer chunk_index "Order within document"
     }
 ```
@@ -211,11 +212,22 @@ erDiagram
       "text": { "type": "text" },
       "company_id": { "type": "keyword" },
       "company_name": { "type": "text" },
+      "policy_type": { "type": "keyword" },
       "chunk_index": { "type": "integer" }
     }
   }
 }
 ```
+
+### Policy Types
+
+All three policy types are stored in the same index with a `policy_type` field:
+
+| Policy Type | Description |
+|-------------|-------------|
+| `terms` | Terms and Conditions |
+| `cookie` | Cookie Policy |
+| `privacy` | Privacy Policy |
 
 ### OpenSearch Serverless Connection Code
 

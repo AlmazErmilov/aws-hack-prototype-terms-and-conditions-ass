@@ -28,6 +28,9 @@ function setupEventListeners() {
         addModal.style.display = 'block';
     });
 
+    // Analytics button
+    document.getElementById('analyticsBtn').addEventListener('click', openAnalyticsModal);
+
     // Close modals
     document.querySelectorAll('.close').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -38,10 +41,12 @@ function setupEventListeners() {
 
     // Click outside modal to close
     const uploadPolicyModal = document.getElementById('uploadPolicyModal');
+    const analyticsModal = document.getElementById('analyticsModal');
     window.addEventListener('click', (e) => {
         if (e.target === companyModal) companyModal.style.display = 'none';
         if (e.target === addModal) addModal.style.display = 'none';
         if (e.target === uploadPolicyModal) uploadPolicyModal.style.display = 'none';
+        if (e.target === analyticsModal) closeAnalyticsModal();
     });
 
     // Add company form
@@ -782,13 +787,251 @@ function showChatSources(sources) {
     const sourcesDiv = document.getElementById('chatSources');
     const sourcesList = document.getElementById('sourcesList');
 
-    sourcesList.innerHTML = sources.map(source =>
-        `<span class="source-chip" onclick="showCompanyDetails('${source.company_id}')">${source.company_name}</span>`
-    ).join('');
+    sourcesList.innerHTML = sources.map(source => {
+        const policyLabel = source.policy_label || 'Terms & Conditions';
+        const policyIcon = source.policy_type === 'cookie' ? '🍪' : 
+                          source.policy_type === 'privacy' ? '🔒' : '📄';
+        return `<span class="source-chip" onclick="showCompanyDetails('${source.company_id}')" title="${policyLabel}">${policyIcon} ${source.company_name}</span>`;
+    }).join('');
 
     sourcesDiv.style.display = 'flex';
 }
 
 function hideChatSources() {
     document.getElementById('chatSources').style.display = 'none';
+}
+
+// ==================== Analytics Dashboard ====================
+
+let analyticsCharts = {
+    severity: null,
+    companyRisks: null,
+    policyType: null,
+    severityByCompany: null,
+    category: null
+};
+
+const chartColors = {
+    high: '#f44336',
+    medium: '#ff9800',
+    low: '#4CAF50',
+    terms: '#667eea',
+    cookie: '#ff9800',
+    privacy: '#9c27b0',
+    gradient: ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe']
+};
+
+function openAnalyticsModal() {
+    const modal = document.getElementById('analyticsModal');
+    modal.style.display = 'block';
+
+    if (companies.length === 0) {
+        document.querySelector('.analytics-grid').style.display = 'none';
+        document.getElementById('analyticsEmpty').style.display = 'block';
+        return;
+    }
+
+    document.querySelector('.analytics-grid').style.display = 'grid';
+    document.getElementById('analyticsEmpty').style.display = 'none';
+    renderAnalytics();
+}
+
+function closeAnalyticsModal() {
+    document.getElementById('analyticsModal').style.display = 'none';
+    Object.values(analyticsCharts).forEach(chart => {
+        if (chart) chart.destroy();
+    });
+    analyticsCharts = { severity: null, companyRisks: null, policyType: null, severityByCompany: null, category: null };
+}
+
+function processAnalyticsData() {
+    const data = {
+        totalCompanies: companies.length,
+        totalRisks: 0, highRisks: 0, mediumRisks: 0, lowRisks: 0,
+        termsRisks: 0, cookieRisks: 0, privacyRisks: 0,
+        byCompany: [], byCategory: {}
+    };
+
+    companies.forEach(company => {
+        const terms = company.terms_risks || [];
+        const cookie = company.cookie_risks || [];
+        const privacy = company.privacy_risks || [];
+        const allRisks = [...terms, ...cookie, ...privacy];
+
+        const companyData = {
+            name: company.name, category: company.category, total: allRisks.length,
+            high: allRisks.filter(r => r.severity === 'high').length,
+            medium: allRisks.filter(r => r.severity === 'medium').length,
+            low: allRisks.filter(r => r.severity === 'low').length,
+            terms: terms.length, cookie: cookie.length, privacy: privacy.length
+        };
+
+        data.totalRisks += companyData.total;
+        data.highRisks += companyData.high;
+        data.mediumRisks += companyData.medium;
+        data.lowRisks += companyData.low;
+        data.termsRisks += companyData.terms;
+        data.cookieRisks += companyData.cookie;
+        data.privacyRisks += companyData.privacy;
+        data.byCompany.push(companyData);
+
+        if (!data.byCategory[company.category]) {
+            data.byCategory[company.category] = { total: 0, companies: 0 };
+        }
+        data.byCategory[company.category].total += companyData.total;
+        data.byCategory[company.category].companies += 1;
+    });
+
+    data.byCompany.sort((a, b) => b.total - a.total);
+    return data;
+}
+
+function renderAnalytics() {
+    const data = processAnalyticsData();
+
+    document.getElementById('totalCompanies').textContent = data.totalCompanies;
+    document.getElementById('totalRisks').textContent = data.totalRisks;
+    document.getElementById('highRisks').textContent = data.highRisks;
+    document.getElementById('mediumRisks').textContent = data.mediumRisks;
+    document.getElementById('lowRisks').textContent = data.lowRisks;
+    document.getElementById('avgRisks').textContent = data.totalCompanies > 0
+        ? (data.totalRisks / data.totalCompanies).toFixed(1) : '0';
+
+    renderSeverityChart(data);
+    renderCompanyRisksChart(data);
+    renderPolicyTypeChart(data);
+    renderSeverityByCompanyChart(data);
+    renderCategoryChart(data);
+    renderSeverityLegend(data);
+}
+
+function renderSeverityChart(data) {
+    const ctx = document.getElementById('severityChart').getContext('2d');
+    if (analyticsCharts.severity) analyticsCharts.severity.destroy();
+
+    analyticsCharts.severity = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['High', 'Medium', 'Low'],
+            datasets: [{ data: [data.highRisks, data.mediumRisks, data.lowRisks],
+                backgroundColor: [chartColors.high, chartColors.medium, chartColors.low],
+                borderWidth: 0, hoverOffset: 8 }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, cutout: '65%',
+            plugins: { legend: { display: false },
+                tooltip: { callbacks: { label: (ctx) => {
+                    const pct = data.totalRisks > 0 ? ((ctx.raw / data.totalRisks) * 100).toFixed(1) : 0;
+                    return `${ctx.label}: ${ctx.raw} (${pct}%)`;
+                }}}
+            }
+        }
+    });
+}
+
+function renderSeverityLegend(data) {
+    const legend = document.getElementById('severityLegend');
+    const total = data.totalRisks;
+    const items = [
+        { label: 'High', count: data.highRisks, color: chartColors.high },
+        { label: 'Medium', count: data.mediumRisks, color: chartColors.medium },
+        { label: 'Low', count: data.lowRisks, color: chartColors.low }
+    ];
+    legend.innerHTML = items.map(item => {
+        const pct = total > 0 ? ((item.count / total) * 100).toFixed(0) : 0;
+        return `<div class="legend-item"><span class="legend-color" style="background: ${item.color}"></span><span>${item.label}: ${item.count} (${pct}%)</span></div>`;
+    }).join('');
+}
+
+function renderCompanyRisksChart(data) {
+    const ctx = document.getElementById('companyRisksChart').getContext('2d');
+    if (analyticsCharts.companyRisks) analyticsCharts.companyRisks.destroy();
+    const topCompanies = data.byCompany.slice(0, 8);
+
+    analyticsCharts.companyRisks = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: topCompanies.map(c => c.name),
+            datasets: [{ data: topCompanies.map(c => c.total),
+                backgroundColor: chartColors.gradient.slice(0, topCompanies.length),
+                borderRadius: 6, barThickness: 24 }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `Total risks: ${ctx.raw}` }}},
+            scales: { x: { beginAtZero: true, grid: { display: false }, ticks: { stepSize: 1 }}, y: { grid: { display: false }}}
+        }
+    });
+}
+
+function renderPolicyTypeChart(data) {
+    const ctx = document.getElementById('policyTypeChart').getContext('2d');
+    if (analyticsCharts.policyType) analyticsCharts.policyType.destroy();
+
+    analyticsCharts.policyType = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Terms & Conditions', 'Cookie Policy', 'Privacy Policy'],
+            datasets: [{ data: [data.termsRisks, data.cookieRisks, data.privacyRisks],
+                backgroundColor: [chartColors.terms, chartColors.cookie, chartColors.privacy],
+                borderWidth: 0, hoverOffset: 8 }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, cutout: '65%',
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: 11 }}},
+                tooltip: { callbacks: { label: (ctx) => {
+                    const total = data.termsRisks + data.cookieRisks + data.privacyRisks;
+                    const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                    return `${ctx.label}: ${ctx.raw} (${pct}%)`;
+                }}}
+            }
+        }
+    });
+}
+
+function renderSeverityByCompanyChart(data) {
+    const ctx = document.getElementById('severityByCompanyChart').getContext('2d');
+    if (analyticsCharts.severityByCompany) analyticsCharts.severityByCompany.destroy();
+
+    analyticsCharts.severityByCompany = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.byCompany.map(c => c.name),
+            datasets: [
+                { label: 'High', data: data.byCompany.map(c => c.high), backgroundColor: chartColors.high, borderRadius: 4 },
+                { label: 'Medium', data: data.byCompany.map(c => c.medium), backgroundColor: chartColors.medium, borderRadius: 4 },
+                { label: 'Low', data: data.byCompany.map(c => c.low), backgroundColor: chartColors.low, borderRadius: 4 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'top', labels: { boxWidth: 12, padding: 16 }}},
+            scales: { x: { stacked: true, grid: { display: false }}, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 }}}
+        }
+    });
+}
+
+function renderCategoryChart(data) {
+    const ctx = document.getElementById('categoryChart').getContext('2d');
+    if (analyticsCharts.category) analyticsCharts.category.destroy();
+
+    const categories = Object.keys(data.byCategory);
+    const categoryData = categories.map(cat => ({
+        name: cat.charAt(0).toUpperCase() + cat.slice(1),
+        avgRisks: data.byCategory[cat].companies > 0 ? (data.byCategory[cat].total / data.byCategory[cat].companies).toFixed(1) : 0
+    })).sort((a, b) => b.avgRisks - a.avgRisks);
+
+    analyticsCharts.category = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: categoryData.map(c => c.name),
+            datasets: [{ label: 'Avg Risks/Company', data: categoryData.map(c => parseFloat(c.avgRisks)),
+                backgroundColor: chartColors.gradient.slice(0, categoryData.length), borderRadius: 6, barThickness: 28 }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `Avg risks per company: ${ctx.raw}` }}},
+            scales: { x: { grid: { display: false }}, y: { beginAtZero: true, grid: { color: '#f0f0f0' }}}
+        }
+    });
 }

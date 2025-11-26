@@ -20,32 +20,39 @@ flowchart TB
         Cards["Company Cards Grid"]
         Modal["Risk Analysis Modal"]
         Form["Upload T&C Form"]
+        Analytics["📊 Analytics Dashboard<br/>(Chart.js)"]
     end
 
     subgraph Backend["⚙️ FastAPI Backend"]
         API["REST API<br/>Endpoints"]
         DBS["DynamoDB<br/>Service"]
         BRS["Bedrock<br/>Service"]
+        VDS["Vector DB<br/>Service"]
     end
 
     subgraph AWS["☁️ AWS Cloud"]
         DDB[("DynamoDB<br/>TermsAndConditions")]
-        BDK["Bedrock<br/>Claude 3 Haiku"]
+        BDK["Bedrock<br/>Claude Sonnet 4"]
+        OSS[("OpenSearch<br/>Serverless")]
     end
 
     UI --> Cards
     UI --> Modal
     UI --> Form
+    UI --> Analytics
 
     Cards <-->|"HTTP/JSON"| API
     Modal <-->|"HTTP/JSON"| API
     Form <-->|"HTTP/JSON"| API
+    Analytics <-->|"Uses cached<br/>company data"| Cards
 
     API --> DBS
     API --> BRS
+    API --> VDS
 
     DBS <-->|"AWS SDK"| DDB
     BRS <-->|"AWS SDK"| BDK
+    VDS <-->|"AWS SDK"| OSS
 
     style Client fill:#e1f5fe
     style Backend fill:#fff3e0
@@ -117,13 +124,188 @@ sequenceDiagram
     F->>U: Show in grid + open modal
 ```
 
+## Analytics Dashboard
+
+The Analytics Dashboard provides visual insights into risk data across all analyzed companies using interactive Chart.js visualizations.
+
+### Analytics Data Flow
+
+```mermaid
+flowchart LR
+    subgraph DataSource["📦 Data Source"]
+        Companies["companies[]<br/>Array in Memory"]
+    end
+
+    subgraph Processing["⚙️ Data Processing"]
+        Aggregate["processAnalyticsData()"]
+
+        subgraph Metrics["Calculated Metrics"]
+            direction TB
+            M1["Total Risks"]
+            M2["By Severity"]
+            M3["By Policy Type"]
+            M4["By Company"]
+            M5["By Category"]
+        end
+    end
+
+    subgraph Visualization["📊 Chart.js Rendering"]
+        direction TB
+        C1["🍩 Severity<br/>Distribution"]
+        C2["📊 Risks by<br/>Company"]
+        C3["🍩 Policy Type<br/>Breakdown"]
+        C4["📊 Stacked<br/>Severity"]
+        C5["📊 Category<br/>Statistics"]
+        C6["📋 Summary<br/>Stats Panel"]
+    end
+
+    Companies --> Aggregate
+    Aggregate --> M1 & M2 & M3 & M4 & M5
+    M2 --> C1
+    M4 --> C2
+    M3 --> C3
+    M4 --> C4
+    M5 --> C5
+    M1 & M2 --> C6
+
+    style DataSource fill:#e3f2fd
+    style Processing fill:#fff3e0
+    style Visualization fill:#e8f5e9
+```
+
+### Analytics Dashboard Components
+
+```mermaid
+flowchart TB
+    subgraph Dashboard["📊 Analytics Dashboard Modal"]
+        direction TB
+
+        subgraph Row1["Top Row"]
+            direction LR
+            Severity["🍩 Risk Severity<br/>Distribution<br/><i>High/Medium/Low</i>"]
+            CompanyBar["📊 Risks by Company<br/><i>Horizontal bar chart</i>"]
+            PolicyType["🍩 Risks by Policy<br/>Type<br/><i>Terms/Cookie/Privacy</i>"]
+        end
+
+        subgraph Row2["Middle Row - Full Width"]
+            StackedBar["📊 Severity Breakdown by Company<br/><i>Stacked bar chart showing High/Medium/Low per company</i>"]
+        end
+
+        subgraph Row3["Bottom Row"]
+            direction LR
+            CategoryBar["📊 Category Statistics<br/><i>Avg risks per category</i>"]
+            StatsPanel["📋 Summary Panel<br/>• Total Companies<br/>• Total Risks<br/>• High/Medium/Low counts<br/>• Avg Risks/Company"]
+        end
+    end
+
+    style Dashboard fill:#f5f5f5
+    style Row1 fill:#e3f2fd
+    style Row2 fill:#fff3e0
+    style Row3 fill:#e8f5e9
+```
+
+### Chart Types and Data Mapping
+
+```mermaid
+graph LR
+    subgraph Input["Risk Data Structure"]
+        R["Risk Object"]
+        R --> T["title: string"]
+        R --> D["description: string"]
+        R --> S["severity: high|medium|low"]
+    end
+
+    subgraph Aggregation["Data Aggregation"]
+        A1["Count by Severity"]
+        A2["Group by Company"]
+        A3["Group by Policy Type"]
+        A4["Group by Category"]
+    end
+
+    subgraph Charts["Chart Visualizations"]
+        CH1["Doughnut Chart<br/>Severity %"]
+        CH2["Horizontal Bar<br/>Company Rankings"]
+        CH3["Doughnut Chart<br/>Policy Distribution"]
+        CH4["Stacked Bar<br/>Detailed Breakdown"]
+        CH5["Vertical Bar<br/>Category Comparison"]
+    end
+
+    R --> A1 --> CH1
+    R --> A2 --> CH2
+    R --> A3 --> CH3
+    A1 --> A2 --> CH4
+    R --> A4 --> CH5
+
+    style Input fill:#ffebee
+    style Aggregation fill:#e3f2fd
+    style Charts fill:#e8f5e9
+```
+
+### Analytics User Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 👤 User
+    participant F as 🖥️ Frontend
+    participant C as 📊 Chart.js
+    participant M as 💾 Memory
+
+    U->>F: Click "Analytics" button
+    F->>M: Read companies[] array
+    M-->>F: Return all company data
+
+    F->>F: processAnalyticsData()
+    Note over F: Aggregate risks by:<br/>- Severity (high/medium/low)<br/>- Company<br/>- Policy type<br/>- Category
+
+    F->>F: Open Analytics Modal
+
+    par Render All Charts
+        F->>C: renderSeverityChart()
+        F->>C: renderCompanyRisksChart()
+        F->>C: renderPolicyTypeChart()
+        F->>C: renderSeverityByCompanyChart()
+        F->>C: renderCategoryChart()
+    end
+
+    C-->>F: Charts rendered
+    F->>F: Update summary statistics
+    F->>U: Display Analytics Dashboard
+
+    U->>F: Hover over chart element
+    C->>U: Show tooltip with details
+
+    U->>F: Close modal
+    F->>C: Destroy all chart instances
+    Note over F,C: Memory cleanup
+```
+
+### Severity Color Scheme
+
+| Severity | Color | Hex Code | Usage |
+|----------|-------|----------|-------|
+| High | Red | `#f44336` | Critical privacy risks |
+| Medium | Orange | `#ff9800` | Moderate concerns |
+| Low | Green | `#4CAF50` | Minor issues |
+
+### Policy Type Color Scheme
+
+| Policy Type | Color | Hex Code |
+|-------------|-------|----------|
+| Terms & Conditions | Purple | `#667eea` |
+| Cookie Policy | Orange | `#ff9800` |
+| Privacy Policy | Violet | `#9c27b0` |
+
 ## Component Architecture
 
 ```mermaid
 flowchart LR
-    subgraph Frontend
+    subgraph Frontend["Frontend (Browser)"]
         A[index.html] --> B[styles.css]
         A --> C[app.js]
+        A --> CH[Chart.js CDN]
+        C --> AN[Analytics Module]
+        AN --> CH
     end
 
     subgraph Backend
@@ -131,16 +313,20 @@ flowchart LR
         D --> F[services/]
         F --> G[bedrock.py]
         F --> H[dynamodb.py]
+        F --> V[vector_db.py]
+        F --> S[scraper.py]
     end
 
-    subgraph External
+    subgraph External["AWS Services"]
         I[(DynamoDB)]
         J[Bedrock API]
+        K[(OpenSearch)]
     end
 
     C <-->|REST API| D
     H <--> I
     G <--> J
+    V <--> K
 
     style Frontend fill:#c8e6c9
     style Backend fill:#bbdefb
@@ -169,6 +355,8 @@ xychart-beta horizontal
 | Add Companies | Upload new T&C for any company |
 | URL Scraping | Automatically fetch T&C from company URLs |
 | RAG Chat | Ask questions about terms across all companies |
+| **Analytics Dashboard** | Interactive charts and visualizations of risk data |
+| Policy Types | Analyze Terms, Cookie, and Privacy policies separately |
 | Sample Data | Pre-loaded data for Facebook, TikTok, Tinder, X, Instagram, LinkedIn |
 
 ## Tech Stack
@@ -177,7 +365,7 @@ xychart-beta horizontal
 flowchart LR
     subgraph Stack["Technology Stack"]
         direction TB
-        FE["🎨 Frontend<br/>HTML • CSS • JavaScript"]
+        FE["🎨 Frontend<br/>HTML • CSS • JavaScript • Chart.js"]
         BE["⚙️ Backend<br/>Python • FastAPI"]
         DB["🗄️ Database<br/>AWS DynamoDB"]
         VS["🔍 Vector Search<br/>OpenSearch Serverless"]
@@ -260,7 +448,20 @@ Click "Analyze with AI" to generate or refresh the risk analysis using Claude.
 1. Click "+ Add Company"
 2. Enter company name and category
 3. Either paste the Terms & Conditions text OR provide a URL to scrape
-4. Submit to analyze
+4. Optionally add Cookie Policy and Privacy Policy
+5. Submit to analyze
+
+### Viewing Analytics Dashboard
+1. Click the "Analytics" button in the top controls
+2. View interactive charts showing:
+   - **Risk Severity Distribution**: Doughnut chart of High/Medium/Low risks
+   - **Risks by Company**: Horizontal bar chart ranking companies by risk count
+   - **Risks by Policy Type**: Breakdown across Terms, Cookie, and Privacy policies
+   - **Severity by Company**: Stacked bar chart showing risk severity per company
+   - **Category Statistics**: Average risks per company category
+   - **Summary Panel**: Key metrics at a glance
+3. Hover over chart elements for detailed tooltips
+4. Close the modal to return to the main view
 
 ## API Reference
 
@@ -339,9 +540,9 @@ flowchart LR
 │       ├── vector_db.py     # OpenSearch Serverless vector search
 │       └── scraper.py       # URL scraping for T&C documents
 ├── frontend/
-│   ├── index.html           # Main HTML page
-│   ├── styles.css           # CSS styling
-│   └── app.js               # Frontend JavaScript
+│   ├── index.html           # Main HTML page + Analytics modal
+│   ├── styles.css           # CSS styling + Analytics dashboard styles
+│   └── app.js               # Frontend JavaScript + Chart.js analytics
 ├── docs/
 │   ├── PROGRESS.md          # Development progress
 │   └── DATABASE_AND_RAG.md  # Database and RAG architecture
@@ -352,6 +553,21 @@ flowchart LR
 ├── CLAUDE.md                # Claude Code guidance
 └── README.md
 ```
+
+### Analytics Module (in app.js)
+
+The analytics functionality is implemented as a module within `app.js`:
+
+| Function | Description |
+|----------|-------------|
+| `openAnalyticsModal()` | Opens the analytics modal and triggers chart rendering |
+| `closeAnalyticsModal()` | Closes modal and destroys chart instances for memory cleanup |
+| `processAnalyticsData()` | Aggregates risk data from all companies |
+| `renderSeverityChart()` | Renders doughnut chart for severity distribution |
+| `renderCompanyRisksChart()` | Renders horizontal bar chart for company rankings |
+| `renderPolicyTypeChart()` | Renders doughnut chart for policy type breakdown |
+| `renderSeverityByCompanyChart()` | Renders stacked bar chart for detailed breakdown |
+| `renderCategoryChart()` | Renders vertical bar chart for category statistics |
 
 ## Risk Categories
 
