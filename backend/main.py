@@ -201,7 +201,8 @@ async def chat_about_company(company_id: str, request: dict):
 async def rag_chat(request: dict):
     """
     RAG-powered chat about terms and conditions.
-    Can search across all companies or focus on a specific one.
+    - If company_id provided: uses full T&C text directly from DynamoDB
+    - If no company_id: uses vector search across all companies
     """
     question = request.get('question', '')
     company_id = request.get('company_id')  # Optional - filter to specific company
@@ -211,18 +212,50 @@ async def rag_chat(request: dict):
         raise HTTPException(status_code=400, detail="Question is required")
 
     try:
-        # Search for relevant chunks
-        chunks = vector_service.search(
-            query=question,
-            n_results=5,
-            company_id=company_id
-        )
+        # If specific company selected, get full T&C from DynamoDB (no vector search)
+        if company_id:
+            company = db_service.get_company(company_id)
+            if not company:
+                raise HTTPException(status_code=404, detail="Company not found")
 
-        if not chunks:
-            return {
-                "response": "I don't have any terms and conditions indexed yet. Please add some companies first, or try re-analyzing existing ones.",
-                "sources": []
-            }
+            if not company.get('terms_text'):
+                return {
+                    "response": "This company doesn't have any terms and conditions text stored.",
+                    "sources": []
+                }
+
+            # Use full T&C text as context
+            chunks = [{
+                "text": company['terms_text'],
+                "company_id": company_id,
+                "company_name": company['name']
+            }]
+            sources = [{"company_id": company_id, "company_name": company['name']}]
+
+        else:
+            # No company filter - use vector search across all companies
+            chunks = vector_service.search(
+                query=question,
+                n_results=5
+            )
+
+            if not chunks:
+                return {
+                    "response": "I don't have any terms and conditions indexed yet. Please add some companies first, or try re-analyzing existing ones.",
+                    "sources": []
+                }
+
+            # Format sources for frontend
+            sources = []
+            seen = set()
+            for chunk in chunks:
+                company_name = chunk.get('company_name')
+                if company_name and company_name not in seen:
+                    sources.append({
+                        "company_id": chunk.get('company_id'),
+                        "company_name": company_name
+                    })
+                    seen.add(company_name)
 
         # Generate response using RAG
         response = bedrock_service.rag_chat(
@@ -230,18 +263,6 @@ async def rag_chat(request: dict):
             context_chunks=chunks,
             conversation_history=conversation_history
         )
-
-        # Format sources for frontend
-        sources = []
-        seen = set()
-        for chunk in chunks:
-            company_name = chunk.get('company_name')
-            if company_name and company_name not in seen:
-                sources.append({
-                    "company_id": chunk.get('company_id'),
-                    "company_name": company_name
-                })
-                seen.add(company_name)
 
         return {
             "response": response,
