@@ -919,7 +919,9 @@ const chartColors = {
     terms: '#667eea',
     cookie: '#ff9800',
     privacy: '#9c27b0',
-    gradient: ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe']
+    gradient: ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe'],
+    blueGradient: ['#0d47a1', '#1565c0', '#1976d2', '#1e88e5', '#2196f3', '#42a5f5', '#64b5f6', '#90caf9'],
+    orangeGradient: ['#e65100', '#ef6c00', '#f57c00', '#fb8c00', '#ff9800', '#ffa726', '#ffb74d', '#ffcc80']
 };
 
 function openAnalyticsModal() {
@@ -1054,7 +1056,7 @@ function renderCompanyRisksChart(data) {
         data: {
             labels: topCompanies.map(c => c.name),
             datasets: [{ data: topCompanies.map(c => c.total),
-                backgroundColor: chartColors.gradient.slice(0, topCompanies.length),
+                backgroundColor: chartColors.orangeGradient.slice(0, topCompanies.length),
                 borderRadius: 6, barThickness: 24 }]
         },
         options: {
@@ -1074,7 +1076,7 @@ function renderPolicyTypeChart(data) {
         data: {
             labels: ['Terms & Conditions', 'Cookie Policy', 'Privacy Policy'],
             datasets: [{ data: [data.termsRisks, data.cookieRisks, data.privacyRisks],
-                backgroundColor: [chartColors.terms, chartColors.cookie, chartColors.privacy],
+                backgroundColor: chartColors.orangeGradient.slice(0, 3),
                 borderWidth: 0, hoverOffset: 8 }]
         },
         options: {
@@ -1127,7 +1129,7 @@ function renderCategoryChart(data) {
         data: {
             labels: categoryData.map(c => c.name),
             datasets: [{ label: 'Avg Risks/Company', data: categoryData.map(c => parseFloat(c.avgRisks)),
-                backgroundColor: chartColors.gradient.slice(0, categoryData.length), borderRadius: 6, barThickness: 28 }]
+                backgroundColor: chartColors.blueGradient.slice(0, categoryData.length), borderRadius: 6, barThickness: 28 }]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
