@@ -319,3 +319,167 @@ async function deleteCompany() {
         alert('Error deleting company. Please try again.');
     }
 }
+
+// ==================== Chat Widget ====================
+
+let chatHistory = [];
+let selectedChatCompanyId = null;
+
+function toggleChat() {
+    const chatPanel = document.getElementById('chatPanel');
+    const chatToggle = document.getElementById('chatToggle');
+
+    if (chatPanel.style.display === 'none') {
+        chatPanel.style.display = 'flex';
+        chatToggle.classList.add('active');
+        updateChatCompanyFilter();
+        document.getElementById('chatInput').focus();
+    } else {
+        chatPanel.style.display = 'none';
+        chatToggle.classList.remove('active');
+    }
+}
+
+function updateChatCompanyFilter() {
+    const select = document.getElementById('chatCompanyFilter');
+    const currentValue = select.value;
+
+    select.innerHTML = '<option value="">All Companies</option>';
+
+    companies.forEach(company => {
+        const option = document.createElement('option');
+        option.value = company.id;
+        option.textContent = company.name;
+        select.appendChild(option);
+    });
+
+    // Restore previous selection if it still exists
+    if (currentValue && companies.find(c => c.id === currentValue)) {
+        select.value = currentValue;
+    }
+}
+
+function updateChatFilter() {
+    selectedChatCompanyId = document.getElementById('chatCompanyFilter').value || null;
+}
+
+function handleChatKeypress(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendChatMessage();
+    }
+}
+
+async function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+
+    if (!message) return;
+
+    // Add user message to chat
+    addChatMessage(message, 'user');
+    input.value = '';
+
+    // Show typing indicator
+    const typingId = showTypingIndicator();
+
+    try {
+        const response = await fetch(`${API_URL}/api/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                question: message,
+                company_id: selectedChatCompanyId,
+                history: chatHistory.slice(-10) // Send last 10 messages for context
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Chat request failed');
+        }
+
+        const data = await response.json();
+
+        // Remove typing indicator
+        removeTypingIndicator(typingId);
+
+        // Add assistant response
+        addChatMessage(data.response, 'assistant');
+
+        // Show sources if available
+        if (data.sources && data.sources.length > 0) {
+            showChatSources(data.sources);
+        } else {
+            hideChatSources();
+        }
+
+        // Update history
+        chatHistory.push({ role: 'user', content: message });
+        chatHistory.push({ role: 'assistant', content: data.response });
+
+    } catch (error) {
+        console.error('Chat error:', error);
+        removeTypingIndicator(typingId);
+        addChatMessage('Sorry, I encountered an error. Please try again.', 'assistant');
+    }
+}
+
+function addChatMessage(content, role) {
+    const messagesContainer = document.getElementById('chatMessages');
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${role}`;
+
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    contentDiv.textContent = content;
+
+    messageDiv.appendChild(contentDiv);
+    messagesContainer.appendChild(messageDiv);
+
+    // Scroll to bottom
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function showTypingIndicator() {
+    const messagesContainer = document.getElementById('chatMessages');
+    const id = 'typing-' + Date.now();
+
+    const typingDiv = document.createElement('div');
+    typingDiv.id = id;
+    typingDiv.className = 'chat-message assistant typing';
+    typingDiv.innerHTML = `
+        <div class="message-content">
+            <span class="typing-dots">
+                <span></span><span></span><span></span>
+            </span>
+        </div>
+    `;
+
+    messagesContainer.appendChild(typingDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    return id;
+}
+
+function removeTypingIndicator(id) {
+    const typing = document.getElementById(id);
+    if (typing) {
+        typing.remove();
+    }
+}
+
+function showChatSources(sources) {
+    const sourcesDiv = document.getElementById('chatSources');
+    const sourcesList = document.getElementById('sourcesList');
+
+    sourcesList.innerHTML = sources.map(source =>
+        `<span class="source-chip" onclick="showCompanyDetails('${source.company_id}')">${source.company_name}</span>`
+    ).join('');
+
+    sourcesDiv.style.display = 'flex';
+}
+
+function hideChatSources() {
+    document.getElementById('chatSources').style.display = 'none';
+}

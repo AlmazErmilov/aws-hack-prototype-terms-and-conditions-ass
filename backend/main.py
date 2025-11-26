@@ -6,7 +6,7 @@ from typing import List
 import os
 
 from models import Company, CompanyCreate, CompanyResponse, Risk, UploadTermsRequest
-from services import BedrockService, DynamoDBService, ScraperService
+from services import BedrockService, DynamoDBService, ScraperService, VectorDBService
 
 app = FastAPI(
     title="Terms & Conditions Risk Analyzer",
@@ -27,6 +27,7 @@ app.add_middleware(
 db_service = DynamoDBService()
 bedrock_service = BedrockService()
 scraper_service = ScraperService()
+vector_service = VectorDBService(bedrock_service)
 
 # Serve static files
 frontend_path = os.path.join(os.path.dirname(__file__), '..', 'frontend')
@@ -95,6 +96,16 @@ async def create_company(request: UploadTermsRequest):
             summary=analysis.get('summary', '')
         )
 
+        # Index terms in vector database for RAG
+        try:
+            vector_service.index_company_terms(
+                company_id=company['id'],
+                company_name=request.company_name,
+                terms_text=terms_text
+            )
+        except Exception as ve:
+            print(f"Vector indexing failed: {ve}")
+
         # Return updated company
         return db_service.get_company(company['id'])
 
@@ -126,6 +137,16 @@ async def analyze_company(company_id: str):
             summary=analysis.get('summary', '')
         )
 
+        # Re-index terms in vector database
+        try:
+            vector_service.index_company_terms(
+                company_id=company_id,
+                company_name=company['name'],
+                terms_text=company['terms_text']
+            )
+        except Exception as ve:
+            print(f"Vector indexing failed: {ve}")
+
         return db_service.get_company(company_id)
 
     except Exception as e:
@@ -135,6 +156,12 @@ async def analyze_company(company_id: str):
 @app.delete("/api/companies/{company_id}")
 async def delete_company(company_id: str):
     """Delete a company"""
+    # Remove from vector database
+    try:
+        vector_service.remove_company(company_id)
+    except Exception as e:
+        print(f"Error removing from vector DB: {e}")
+
     if db_service.delete_company(company_id):
         return {"status": "deleted"}
     raise HTTPException(status_code=404, detail="Company not found")
@@ -168,6 +195,95 @@ async def chat_about_company(company_id: str, request: dict):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+
+
+@app.post("/api/chat")
+async def rag_chat(request: dict):
+    """
+    RAG-powered chat about terms and conditions.
+    Can search across all companies or focus on a specific one.
+    """
+    question = request.get('question', '')
+    company_id = request.get('company_id')  # Optional - filter to specific company
+    conversation_history = request.get('history', [])
+
+    if not question:
+        raise HTTPException(status_code=400, detail="Question is required")
+
+    try:
+        # Search for relevant chunks
+        chunks = vector_service.search(
+            query=question,
+            n_results=5,
+            company_id=company_id
+        )
+
+        if not chunks:
+            return {
+                "response": "I don't have any terms and conditions indexed yet. Please add some companies first, or try re-analyzing existing ones.",
+                "sources": []
+            }
+
+        # Generate response using RAG
+        response = bedrock_service.rag_chat(
+            user_question=question,
+            context_chunks=chunks,
+            conversation_history=conversation_history
+        )
+
+        # Format sources for frontend
+        sources = []
+        seen = set()
+        for chunk in chunks:
+            company_name = chunk.get('company_name')
+            if company_name and company_name not in seen:
+                sources.append({
+                    "company_id": chunk.get('company_id'),
+                    "company_name": company_name
+                })
+                seen.add(company_name)
+
+        return {
+            "response": response,
+            "sources": sources
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+
+
+@app.post("/api/index-all")
+async def index_all_companies():
+    """Index all existing companies in the vector database"""
+    companies = db_service.get_all_companies()
+    indexed = 0
+    errors = []
+
+    for company in companies:
+        if company.get('terms_text'):
+            try:
+                chunks = vector_service.index_company_terms(
+                    company_id=company['id'],
+                    company_name=company['name'],
+                    terms_text=company['terms_text']
+                )
+                indexed += 1
+            except Exception as e:
+                errors.append(f"{company['name']}: {str(e)}")
+
+    return {
+        "status": "completed",
+        "indexed": indexed,
+        "total": len(companies),
+        "errors": errors
+    }
+
+
+@app.get("/api/vector-stats")
+async def get_vector_stats():
+    """Get vector database statistics"""
+    stats = vector_service.get_stats()
+    return stats
 
 
 if __name__ == "__main__":

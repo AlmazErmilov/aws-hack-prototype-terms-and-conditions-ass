@@ -139,3 +139,76 @@ Provide a clear, concise answer. If the terms don't address this question, say s
 
         response_body = json.loads(response['body'].read())
         return response_body['content'][0]['text']
+
+    def generate_embedding(self, text: str) -> List[float]:
+        """
+        Generate embeddings using Amazon Titan Embeddings model
+        """
+        # Truncate text if too long (Titan has 8k token limit)
+        text = text[:8000]
+
+        body = json.dumps({
+            "inputText": text
+        })
+
+        response = self.client.invoke_model(
+            modelId="amazon.titan-embed-text-v1",
+            body=body,
+            contentType="application/json",
+            accept="application/json"
+        )
+
+        response_body = json.loads(response['body'].read())
+        return response_body['embedding']
+
+    def rag_chat(self, user_question: str, context_chunks: List[Dict[str, Any]],
+                 conversation_history: List[Dict[str, str]] = None) -> str:
+        """
+        Answer user questions using RAG with retrieved context
+        """
+        # Build context from retrieved chunks
+        context_text = ""
+        for i, chunk in enumerate(context_chunks, 1):
+            company = chunk.get('company_name', 'Unknown')
+            text = chunk.get('text', '')
+            context_text += f"\n[Source {i} - {company}]:\n{text}\n"
+
+        # Build conversation history
+        messages = []
+        if conversation_history:
+            for msg in conversation_history[-6:]:  # Keep last 6 messages for context
+                messages.append({"role": msg["role"], "content": msg["content"]})
+
+        system_prompt = """You are a helpful assistant that explains Terms and Conditions in simple, clear language.
+You have access to excerpts from various companies' terms and conditions.
+Always cite which company's terms you're referencing in your answers.
+If the retrieved context doesn't contain relevant information, say so honestly.
+Be concise but thorough in your explanations."""
+
+        user_prompt = f"""Based on the following excerpts from Terms and Conditions:
+{context_text}
+
+User question: {user_question}
+
+Please provide a clear, helpful answer based on the context above."""
+
+        messages.append({"role": "user", "content": user_prompt})
+
+        body = json.dumps({
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 2048,
+            "temperature": 0.5,
+            "top_p": 0.9,
+            "system": system_prompt,
+            "messages": messages
+        })
+
+        response = self.client.invoke_model(
+            modelId=self.model_id,
+            body=body,
+            contentType="application/json",
+            accept="application/json"
+        )
+
+        response_body = json.loads(response['body'].read())
+        return response_body['content'][0]['text']

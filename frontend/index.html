@@ -115,6 +115,42 @@
         </div>
     </div>
 
+    <!-- Chat Widget -->
+    <div id="chatWidget" class="chat-widget">
+        <button id="chatToggle" class="chat-toggle" onclick="toggleChat()">
+            <span class="chat-icon">?</span>
+            <span class="chat-label">Ask AI</span>
+        </button>
+
+        <div id="chatPanel" class="chat-panel" style="display: none;">
+            <div class="chat-header">
+                <h3>T&C Assistant</h3>
+                <div class="chat-controls">
+                    <select id="chatCompanyFilter" onchange="updateChatFilter()">
+                        <option value="">All Companies</option>
+                    </select>
+                    <button class="chat-close" onclick="toggleChat()">&times;</button>
+                </div>
+            </div>
+            <div id="chatMessages" class="chat-messages">
+                <div class="chat-message assistant">
+                    <div class="message-content">
+                        Hi! I can help you understand terms and conditions. Ask me anything about the companies in your list.
+                    </div>
+                </div>
+            </div>
+            <div class="chat-input-container">
+                <input type="text" id="chatInput" placeholder="Ask about terms and conditions..."
+                       onkeypress="handleChatKeypress(event)">
+                <button id="chatSendBtn" onclick="sendChatMessage()">Send</button>
+            </div>
+            <div class="chat-sources" id="chatSources" style="display: none;">
+                <span class="sources-label">Sources:</span>
+                <div id="sourcesList"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/app.js"></script>
 </body>
 </html>
