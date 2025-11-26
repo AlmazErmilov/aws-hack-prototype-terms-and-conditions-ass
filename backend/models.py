@@ -44,4 +44,5 @@ class RiskAnalysisRequest(BaseModel):
 class UploadTermsRequest(BaseModel):
     company_name: str
     category: str
-    terms_text: str
+    terms_text: Optional[str] = None
+    terms_url: Optional[str] = None

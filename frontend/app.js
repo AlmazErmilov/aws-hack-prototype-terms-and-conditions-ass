@@ -2,6 +2,7 @@ const API_URL = '';
 
 let companies = [];
 let currentCompany = null;
+let inputMode = 'paste'; // 'paste' or 'url'
 
 // DOM Elements
 const companiesGrid = document.getElementById('companiesGrid');
@@ -160,6 +161,26 @@ function toggleTerms() {
     }
 }
 
+function setInputMode(mode) {
+    inputMode = mode;
+    const pasteBtn = document.getElementById('togglePaste');
+    const urlBtn = document.getElementById('toggleUrl');
+    const pasteGroup = document.getElementById('pasteGroup');
+    const urlGroup = document.getElementById('urlGroup');
+
+    if (mode === 'paste') {
+        pasteBtn.classList.add('active');
+        urlBtn.classList.remove('active');
+        pasteGroup.style.display = 'block';
+        urlGroup.style.display = 'none';
+    } else {
+        pasteBtn.classList.remove('active');
+        urlBtn.classList.add('active');
+        pasteGroup.style.display = 'none';
+        urlGroup.style.display = 'block';
+    }
+}
+
 async function seedDatabase() {
     const btn = document.getElementById('seedBtn');
     btn.disabled = true;
@@ -183,35 +204,59 @@ async function handleAddCompany(e) {
     const name = document.getElementById('companyName').value;
     const category = document.getElementById('companyCategory').value;
     const termsText = document.getElementById('termsText').value;
+    const termsUrl = document.getElementById('termsUrl').value;
+
+    // Validation
+    if (inputMode === 'paste' && !termsText.trim()) {
+        alert('Please paste the terms and conditions text.');
+        return;
+    }
+    if (inputMode === 'url' && !termsUrl.trim()) {
+        alert('Please enter the URL for the terms and conditions.');
+        return;
+    }
 
     const submitBtn = e.target.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Analyzing...';
+    submitBtn.textContent = inputMode === 'url' ? 'Fetching & Analyzing...' : 'Analyzing...';
+
+    // Build request body based on input mode
+    const requestBody = {
+        company_name: name,
+        category: category
+    };
+
+    if (inputMode === 'paste') {
+        requestBody.terms_text = termsText;
+    } else {
+        requestBody.terms_url = termsUrl;
+    }
 
     try {
         const response = await fetch(`${API_URL}/api/companies`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                company_name: name,
-                category: category,
-                terms_text: termsText
-            })
+            body: JSON.stringify(requestBody)
         });
 
-        if (!response.ok) throw new Error('Failed to add company');
+        const responseData = await response.json();
+
+        if (!response.ok) {
+            throw new Error(responseData.detail || 'Failed to add company');
+        }
 
         addModal.style.display = 'none';
         document.getElementById('addCompanyForm').reset();
+        document.getElementById('termsUrl').value = '';
+        setInputMode('paste'); // Reset to paste mode
         await loadCompanies();
 
         // Show the newly added company
-        const newCompany = await response.json();
-        showCompanyDetails(newCompany.id);
+        showCompanyDetails(responseData.id);
 
     } catch (error) {
         console.error('Error adding company:', error);
-        alert('Error adding company. Please try again.');
+        alert(error.message || 'Error adding company. Please try again.');
     } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Add & Analyze';

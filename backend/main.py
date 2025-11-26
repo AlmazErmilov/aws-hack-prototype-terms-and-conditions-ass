@@ -6,7 +6,7 @@ from typing import List
 import os
 
 from models import Company, CompanyCreate, CompanyResponse, Risk, UploadTermsRequest
-from services import BedrockService, DynamoDBService
+from services import BedrockService, DynamoDBService, ScraperService
 
 app = FastAPI(
     title="Terms & Conditions Risk Analyzer",
@@ -26,6 +26,7 @@ app.add_middleware(
 # Initialize services
 db_service = DynamoDBService()
 bedrock_service = BedrockService()
+scraper_service = ScraperService()
 
 # Serve static files
 frontend_path = os.path.join(os.path.dirname(__file__), '..', 'frontend')
@@ -61,18 +62,30 @@ async def get_company(company_id: str):
 @app.post("/api/companies", response_model=CompanyResponse)
 async def create_company(request: UploadTermsRequest):
     """Create a new company and analyze its terms"""
+    # Get terms text - either from direct input or by scraping URL
+    terms_text = request.terms_text
+
+    if request.terms_url and not terms_text:
+        try:
+            terms_text = scraper_service.fetch_terms_from_url(request.terms_url)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    if not terms_text:
+        raise HTTPException(status_code=400, detail="Either terms_text or terms_url is required")
+
     # Create company entry
     company = db_service.create_company(
         name=request.company_name,
         category=request.category,
-        terms_text=request.terms_text
+        terms_text=terms_text
     )
 
     # Analyze terms using Bedrock
     try:
         analysis = bedrock_service.analyze_terms_and_conditions(
             company_name=request.company_name,
-            terms_text=request.terms_text
+            terms_text=terms_text
         )
 
         # Update company with analysis
